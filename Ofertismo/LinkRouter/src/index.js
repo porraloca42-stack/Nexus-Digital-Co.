@@ -1,6 +1,7 @@
 import { DurableObject } from 'cloudflare:workers';
 import { cleanSource, dateInSaoPaulo, nextClick, validateConfig, retainMetricsForGroups } from './rotation.mjs';
 import { landingHtml, privacyHtml } from './landing.mjs';
+import { renderInviteTest } from './invite-test.mjs';
 
 const DEFAULT_CONFIG = { limit: 1000, groups: [] };
 const DEFAULT_METRICS = { total: 0, groupIndex: 0, byGroup: {}, bySource: {}, byDaySource: {} };
@@ -20,6 +21,12 @@ export class LinkRouterState extends DurableObject {
         this.ctx.storage.get('config'), this.ctx.storage.get('metrics')
       ]);
       return reply({ config: config || DEFAULT_CONFIG, metrics: metrics || DEFAULT_METRICS });
+    }
+    if (path === '/internal/current-invite' && request.method === 'GET') {
+      const [config, metrics] = await Promise.all([this.ctx.storage.get('config'), this.ctx.storage.get('metrics')]);
+      const result = nextClick(config || DEFAULT_CONFIG, metrics || DEFAULT_METRICS, 'teste', dateInSaoPaulo());
+      if (!result.target) return reply({ error: result.reason }, 503);
+      return reply({ url: result.target.url }); // Apenas consulta: não incrementa contadores.
     }
     if (path === '/internal/config' && request.method === 'POST') {
       const payload = await request.json();
@@ -106,6 +113,20 @@ export default {
       return new Response(adminHtml(), { headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', 'x-frame-options': 'DENY', 'content-security-policy': "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self'; base-uri 'none'; form-action 'none'" } });
     }
     const stub = env.ROUTER_STATE.get(env.ROUTER_STATE.idFromName('ofertismo-main'));
+    if (path === '/teste-convite' && request.method === 'GET') {
+      const preview = await stub.fetch('https://router.local/internal/current-invite');
+      if (!preview.ok) return new Response('Nenhum convite disponível para testar agora.', {
+        status: 503, headers: { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store' }
+      });
+      const { url: invite } = await preview.json();
+      try {
+        return new Response(renderInviteTest(invite), {
+          headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', 'x-robots-tag': 'noindex, nofollow', 'x-frame-options': 'DENY', 'x-content-type-options': 'nosniff' }
+        });
+      } catch {
+        return new Response('Convite indisponível para o teste.', { status: 503, headers: { 'cache-control': 'no-store' } });
+      }
+    }
     if (path === '/api/admin/config' && (request.method === 'GET' || request.method === 'POST')) {
       if (!isAuthorized(request, env)) return reply({ error: 'Não autorizado.' }, 401);
       const internal = request.method === 'GET' ? '/internal/stats' : '/internal/config';
