@@ -1,5 +1,6 @@
 import { DurableObject } from 'cloudflare:workers';
 import { cleanSource, dateInSaoPaulo, nextClick, validateConfig, retainMetricsForGroups } from './rotation.mjs';
+import { landingHtml, privacyHtml } from './landing.mjs';
 
 const DEFAULT_CONFIG = { limit: 1000, groups: [] };
 const DEFAULT_METRICS = { total: 0, groupIndex: 0, byGroup: {}, bySource: {}, byDaySource: {} };
@@ -95,6 +96,12 @@ export default {
     const url = new URL(request.url);
     const path = url.pathname;
     if (path === '/health' && request.method === 'GET') return reply({ status: 'ok', app: 'ofertismo-router' });
+    if ((path === '/' || path === '/inicio') && request.method === 'GET') {
+      return new Response(landingHtml, { headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'public, max-age=300', 'x-content-type-options': 'nosniff', 'x-frame-options': 'DENY' } });
+    }
+    if (path === '/privacidade' && request.method === 'GET') {
+      return new Response(privacyHtml, { headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'public, max-age=300', 'x-content-type-options': 'nosniff', 'x-frame-options': 'DENY' } });
+    }
     if (path === '/admin' && request.method === 'GET') {
       return new Response(adminHtml(), { headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', 'x-frame-options': 'DENY', 'content-security-policy': "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'self'; base-uri 'none'; form-action 'none'" } });
     }
