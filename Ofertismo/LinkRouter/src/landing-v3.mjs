@@ -192,6 +192,50 @@ details p{margin:0;padding:0 21px 22px;color:#d5cbd0;line-height:1.6;font-size:1
   .sticky{display:block}
 }
 
+
+/* V3.4: desktop compacto e legível, sem alterar a arte aprovada em telas pequenas */
+@media(min-width:641px){
+ .v3-top .shell{width:min(1140px,calc(100% - 62px))}
+ .site-head{padding:12px 0 10px}
+ .brand-tag{font-size:clamp(12px,1.15vw,16px);letter-spacing:.11em;margin-top:7px}
+ .vip-kicker{font-size:clamp(15px,1.8vw,21px);padding:9px 16px}
+ .hero-scene{min-height:635px;padding-top:34px}
+ .hero-copy{width:55%;max-width:600px}
+ .hero-phone{width:min(44%,432px);right:0;top:5px}
+ .hero-hook{margin-top:28px;font-size:clamp(20px,2vw,26px);max-width:530px}
+ .hero-ring{right:3%;bottom:4%;width:45%;height:8%}
+ .hero-meta{display:none!important}
+ .hero-cta-zone{margin-top:0;padding:0 4px 13px}
+ .hero-cta-zone::before{inset:12% -6% -15%}
+ .cta{min-height:99px}
+ .trust-line{margin-top:15px}
+ .benefits{padding:42px 0 60px}
+}
+@media(min-width:641px) and (max-width:900px){
+ .hero-scene{min-height:545px;padding-top:26px}
+ .hero-phone{width:min(46%,375px);right:-1%;top:5px}
+ .hero-hook{font-size:clamp(17px,2.6vw,22px);margin-top:24px}
+ h1{font-size:clamp(38px,5.3vw,51px)}
+ .brand-tag{font-size:11px}
+ .cta{min-height:82px}
+}
+/* Ampliação opcional: nenhuma mudança visual na arte aprovada até o toque */
+.v34-phone-zoom{position:absolute;z-index:4;border:0;background:transparent;cursor:zoom-in;padding:0}
+.v34-phone-zoom:focus-visible{outline:3px solid #fff;outline-offset:2px;border-radius:15px}
+.v34-phone-zoom-desktop{right:0;top:5px;width:min(44%,432px);height:min(630px,80%);display:block}
+.v34-phone-zoom-mobile{display:none}
+.v34-zoom-viewer[hidden]{display:none!important}
+.v34-zoom-viewer{position:fixed;z-index:999;inset:0;display:flex;align-items:flex-start;justify-content:center;overflow-y:auto;overscroll-behavior:contain;padding:52px 12px 24px;background:rgba(0,0,0,.95);-webkit-backdrop-filter:blur(5px);backdrop-filter:blur(5px)}
+.v34-zoom-viewer img{width:min(100%,540px);max-width:100%;height:auto;margin:0 auto 20px;border-radius:14px;box-shadow:0 6px 36px #000}
+.v34-zoom-close{position:fixed;z-index:1001;top:10px;right:14px;width:46px;height:46px;border:2px solid rgba(255,255,255,.5);border-radius:50%;background:#1e171a;color:#fff;font-size:29px;line-height:1;display:grid;place-items:center;cursor:pointer}
+@media(max-width:900px) and (min-width:641px){.v34-phone-zoom-desktop{width:min(46%,375px);height:540px}}
+@media(max-width:640px){
+ .v34-phone-zoom-desktop{display:none}
+ .v34-phone-zoom-mobile{display:block;left:50%;top:14.4%;width:49%;height:46.8%;border-radius:16px}
+ .v34-zoom-viewer{padding-top:60px;padding-left:5px;padding-right:5px}
+ .v34-zoom-viewer img{width:min(98vw,540px)}
+}
+
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*::before,*::after{transition:none!important;animation:none!important}}
 </style>
 </head><body>
@@ -216,6 +260,7 @@ details p{margin:0;padding:0 21px 22px;color:#d5cbd0;line-height:1.6;font-size:1
    <a href="#participar">Entrar no grupo</a>
   </nav>
   <span id="v3-art-features" class="v3-art-features-anchor" aria-hidden="true"></span>
+  <button class="v34-phone-zoom v34-phone-zoom-mobile" type="button" aria-label="Ampliar ofertas dentro do celular"></button>
   <a id="v3-art-cta" class="v3-art-cta join-cta" href="/entrar/direto" aria-label="Entrar grátis no grupo VIP pelo WhatsApp"></a>
  </div>
 </section>
@@ -237,7 +282,7 @@ details p{margin:0;padding:0 21px 22px;color:#d5cbd0;line-height:1.6;font-size:1
    </div>
    <div class="hero-ring" aria-hidden="true"></div>
    <img class="hero-phone" src="/celular-ofertas-hd.webp" alt="Ilustração de uma mão segurando celular com exemplo de grupo de ofertas, produtos e preços promocionais fictícios" width="958" height="1402" fetchpriority="high" decoding="async">
-   <span class="hero-meta">Ofertas exibidas no celular são ilustrativas, não estão disponíveis para compra.</span>
+   <button class="v34-phone-zoom v34-phone-zoom-desktop" type="button" aria-label="Ampliar ofertas dentro do celular"></button>
  </section>
  <div class="hero-cta-zone"><a class="cta join-cta" id="hero-cta" href="/entrar/direto" aria-label="Entrar grátis no grupo VIP do Ofertismo pelo WhatsApp">
  <span class="cta-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 0 0-8.7 15L2 22l5.2-1.3A10 10 0 1 0 12 2zm0 2a8 8 0 1 1-3.7 15.1l-.4-.2-2.7.7.7-2.6-.2-.4A8 8 0 0 1 12 4zm-3.4 3.5c-.5 0-.8.3-1 1-.2.6-.2 1.4.2 2.3.9 2.1 3 4.4 5.6 5.4.9.3 1.6.3 2.1.1.7-.3 1.2-1.2 1.2-1.7 0-.3-.1-.4-.4-.5l-2-.9c-.3-.1-.5-.1-.7.2l-.8 1c-.2.2-.3.3-.6.1-1.3-.7-2.3-1.7-3-3-.2-.3-.1-.4.1-.6l.7-.8c.2-.2.3-.4.2-.7l-.9-2.1c-.2-.4-.3-.5-.7-.5z"/></svg></span>
@@ -269,6 +314,10 @@ details p{margin:0;padding:0 21px 22px;color:#d5cbd0;line-height:1.6;font-size:1
 <a class="cta join-cta" href="/entrar/direto"><span class="cta-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 0 0-8.7 15L2 22l5.2-1.3A10 10 0 1 0 12 2zm0 2a8 8 0 1 1-3.7 15.1l-.4-.2-2.7.7.7-2.6-.2-.4A8 8 0 0 1 12 4zm-3.4 3.5c-.5 0-.8.3-1 1-.2.6-.2 1.4.2 2.3.9 2.1 3 4.4 5.6 5.4.9.3 1.6.3 2.1.1.7-.3 1.2-1.2 1.2-1.7 0-.3-.1-.4-.4-.5l-2-.9c-.3-.1-.5-.1-.7.2l-.8 1c-.2.2-.3.3-.6.1-1.3-.7-2.3-1.7-3-3-.2-.3-.1-.4.1-.6l.7-.8c.2-.2.3-.4.2-.7l-.9-2.1c-.2-.4-.3-.5-.7-.5z"/></svg></span><span class="cta-divider" aria-hidden="true"></span><span>ENTRAR GRÁTIS<br>NO GRUPO VIP</span><span class="cta-arrow" aria-hidden="true">›</span></a></div></section>
 </main>
 <footer class="footer"><div class="shell footer-inner"><span>© Ofertismo • Ofertas, Descontos e Cupons.</span><span>Exemplos visuais não representam ofertas reais. Preços e disponibilidade devem ser confirmados na loja. <a href="/privacidade">Privacidade</a></span></div></footer>
+<div class="v34-zoom-viewer" id="v34-zoom-viewer" role="dialog" aria-modal="true" aria-label="Ampliar a imagem das ofertas do grupo" hidden>
+  <button id="v34-zoom-close" class="v34-zoom-close" type="button" aria-label="Fechar ampliação">×</button>
+  <img src="/celular-ofertas-hd.webp" alt="Imagem ampliada do exemplo de mensagens de ofertas dentro do WhatsApp" width="958" height="1402" loading="lazy">
+</div>
 <div class="sticky" id="sticky"><a class="cta join-cta" href="/entrar/direto"><span class="cta-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 0 0-8.7 15L2 22l5.2-1.3A10 10 0 1 0 12 2zm0 2a8 8 0 1 1-3.7 15.1l-.4-.2-2.7.7.7-2.6-.2-.4A8 8 0 0 1 12 4z"/></svg></span><span class="cta-divider" aria-hidden="true"></span><span>ENTRAR GRÁTIS NO GRUPO VIP</span><span class="cta-arrow" aria-hidden="true">›</span></a></div>
 <script>
 (function(){
@@ -294,6 +343,26 @@ details p{margin:0;padding:0 21px 22px;color:#d5cbd0;line-height:1.6;font-size:1
  artMenu.querySelectorAll('a').forEach(function(a){a.addEventListener('click',closeArtMenu)});
  document.addEventListener('keydown',function(e){if(e.key==='Escape')closeArtMenu()});
  document.addEventListener('click',function(e){if(!e.target.closest('.v3-art-menu')&&!e.target.closest('.v3-art-menu-toggle'))closeArtMenu()});
+
+ var zoomViewer=document.getElementById('v34-zoom-viewer'),zoomClose=document.getElementById('v34-zoom-close'),lastZoomFocus=null;
+ function closeZoom(){
+   if(zoomViewer.hidden)return;
+   zoomViewer.hidden=true;document.body.style.overflow='';
+   if(lastZoomFocus&&lastZoomFocus.isConnected)lastZoomFocus.focus();
+ }
+ document.querySelectorAll('.v34-phone-zoom').forEach(function(b){
+   b.addEventListener('click',function(){
+     lastZoomFocus=b;
+     zoomViewer.hidden=false;
+     document.body.style.overflow='hidden';
+     zoomViewer.scrollTop=0;
+     zoomClose.focus();
+   });
+ });
+ zoomClose.addEventListener('click',closeZoom);
+ zoomViewer.addEventListener('click',function(e){if(e.target===zoomViewer)closeZoom()});
+ document.addEventListener('keydown',function(e){if(e.key==='Escape')closeZoom()});
+
  var p=new URLSearchParams(location.search),origin=(p.get('origem')||p.get('utm_source')||'').toLowerCase().trim(),source='direto';
  if(['meta','facebook','instagram','fb','ig','metaads'].includes(origin)||(!origin&&p.has('fbclid')))source='meta';
  else if(['team','teamlanders','team-landers'].includes(origin))source='team';
