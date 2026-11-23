@@ -32,7 +32,7 @@ img{display:block;max-width:100%}a{color:inherit}button{font:inherit;cursor:poin
 .menu{position:absolute;z-index:30;right:0;top:53px;width:220px;max-width:calc(100vw - 40px);padding:9px;border:1px solid var(--line);border-radius:13px;background:#1d1015;box-shadow:0 12px 42px rgba(0,0,0,.7)}
 .menu[hidden]{display:none}.menu a{display:block;text-decoration:none;padding:12px 13px;font-weight:750;border-radius:7px;font-size:14px}.menu a:hover{background:#4e2226}
 .vip-kicker{width:min(940px,100%);margin:0 auto;display:block;text-align:center;border-radius:99px;padding:11px 16px;border:2px solid #ff4b1c;background:linear-gradient(95deg,#200d0f,#35130f 35%,#320f0b 70%,#200d0e);box-shadow:inset 0 0 9px #ff2d2675,0 0 17px #e62a1444,0 3px 21px #000;font-size:clamp(12px,2.8vw,22px);font-weight:950;line-height:1.15;letter-spacing:.01em}
-.hero-scene{position:relative;min-height:670px;padding-top:50px;isolation:isolate}
+.hero-scene{position:relative;min-height:760px;padding-top:50px;isolation:isolate}
 .hero-scene::after{content:"";position:absolute;z-index:-1;right:-14%;top:37%;width:70%;height:62%;background:radial-gradient(ellipse,#ff57121d,transparent 71%);filter:blur(22px);pointer-events:none}
 .hero-copy{position:relative;z-index:2;width:52%;max-width:600px;pointer-events:none}
 h1{margin:0;font-size:clamp(49px,5vw,73px);font-style:italic;line-height:.98;letter-spacing:-.058em;font-weight:1000;text-shadow:0 2px 3px #000,0 3px 14px #000}
@@ -42,7 +42,7 @@ h1 .warm{margin-top:5px;color:#ffce18;text-shadow:0 3px 2px rgba(255,50,0,.36),0
 .hero-hook{position:relative;margin:38px 0 0;padding:0 0 0 24px;font-size:clamp(22px,2.4vw,27px);line-height:1.32;font-weight:700;letter-spacing:-.028em;max-width:490px;text-shadow:0 2px 8px rgba(0,0,0,.82)}
 .hero-hook:before{content:"";position:absolute;left:0;top:0;bottom:0;width:5px;border-radius:5px;background:#ff2130}
 .hero-hook strong{color:#ffe130;font-weight:950}
-.hero-phone{position:absolute;z-index:1;width:min(60%,600px);height:auto;right:-7%;top:14px;filter:drop-shadow(0 6px 13px rgba(0,0,0,.7)) drop-shadow(0 0 21px rgba(242,53,15,.32));pointer-events:none}
+.hero-phone{position:absolute;z-index:1;width:min(53%,485px);height:auto;right:-3%;top:16px;filter:drop-shadow(0 6px 13px rgba(0,0,0,.7)) drop-shadow(0 0 21px rgba(242,53,15,.32));pointer-events:none}
 .hero-ring{position:absolute;z-index:0;bottom:12%;right:-2%;width:58%;height:10%;border:3px solid rgba(255,95,5,.35);border-radius:50%;box-shadow:0 0 28px #ff510a65,0 0 30px #e700202c;transform:rotate(-7deg);filter:blur(2px)}
 .hero-meta{position:absolute;bottom:9px;right:2%;font-size:11px;color:#c9bac1;opacity:.8;text-align:right;z-index:2;text-shadow:0 1px 3px #000;max-width:44%}
 .hero-cta-zone{position:relative;z-index:4;margin-top:6px;padding:8px 5px 10px;isolation:isolate}
@@ -83,7 +83,7 @@ details p{margin:0;padding:0 21px 22px;color:#d5cbd0;line-height:1.6;font-size:1
 .footer{border-top:1px solid rgba(255,81,43,.32);padding:25px 0 98px;font-size:12px;color:#b0a6ae;background:#07060b}
 .footer-inner{display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap}.footer a{color:#e9c4a4}
 .sticky{display:none}
-@media(max-width:900px){.hero-scene{min-height:570px}.hero-phone{width:61%;right:-12%;top:38px}.hero-hook{max-width:50%;font-size:clamp(17px,3vw,24px)}h1{font-size:clamp(39px,6vw,58px)}.brand-logo{width:60px;height:60px}.brand-line{height:43px}.brand{gap:12px}.brand-title{font-size:clamp(24px,4.8vw,38px)}}
+@media(max-width:900px){.hero-scene{min-height:615px}.hero-phone{width:min(52%,410px);right:-4%;top:28px}.hero-hook{max-width:50%;font-size:clamp(17px,3vw,24px)}h1{font-size:clamp(39px,6vw,58px)}.brand-logo{width:60px;height:60px}.brand-line{height:43px}.brand{gap:12px}.brand-title{font-size:clamp(24px,4.8vw,38px)}}
 @media(max-width:640px){
  .shell{width:calc(100% - 34px)}.site-head{padding:5px 0 10px}.brand-logo{width:60px;height:60px}.brand-line{height:44px;width:1px}.brand-title{font-size:clamp(23px,7vw,32px)}.brand-tag{font-size:clamp(6px,1.7vw,10px);letter-spacing:.1em}.brand{gap:9px}.menu-btn{min-width:39px;padding:4px}.menu-btn span{width:25px;height:3px}.menu{top:43px}
  .vip-kicker{font-size:clamp(11px,2.8vw,14px);padding:8px 9px;border-width:2px}
