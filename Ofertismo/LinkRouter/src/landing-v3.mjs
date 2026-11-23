@@ -134,7 +134,42 @@ details p{margin:0;padding:0 21px 22px;color:#d5cbd0;line-height:1.6;font-size:1
  .hero-phone{width:100%;right:auto}
  .trust-line{font-size:12px;gap:8px;white-space:normal}
  .cta{font-size:19px;gap:8px}
-}@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*::before,*::after{transition:none!important;animation:none!important}}
+}/* V3.2 – hero mobile lado a lado, conforme rascunho aprovado */
+@media(max-width:640px){
+ .site-head{padding:4px 0 7px}
+ .vip-kicker{font-size:clamp(11px,2.85vw,14px);line-height:1.16;padding:8px 7px}
+ .hero-scene{display:grid;grid-template-columns:minmax(0,52%) minmax(0,48%);align-items:start;min-height:0;padding:17px 0 7px;gap:0}
+ .hero-copy{position:relative;grid-column:1;grid-row:1;align-self:start;order:initial;width:100%;max-width:100%;text-align:left;z-index:2;pointer-events:none}
+ h1{font-size:clamp(26px,7.45vw,40px);line-height:1.035;letter-spacing:-.063em;text-align:left}
+ .title-line{white-space:nowrap}
+ h1 .warm{margin-top:5px}h1 .warm .title-line:last-child{font-size:1.23em;line-height:1.00}
+ .hero-hook{max-width:100%;margin:clamp(20px,6.3vw,27px) 0 0;padding:0 0 0 10px;text-align:left;font-size:clamp(12px,3.38vw,17px);line-height:1.30;letter-spacing:-.027em;font-weight:730}
+ .hero-hook:before{width:3px}
+ .hero-phone{position:relative;grid-column:2;grid-row:1;align-self:start;order:initial;right:auto;top:-23px;width:calc(100% + 32px);max-width:none;height:auto;margin:0 -17px 0 -5px;filter:drop-shadow(0 7px 12px rgba(0,0,0,.70)) drop-shadow(0 0 14px rgba(255,55,5,.15));z-index:1}
+ .hero-ring{position:absolute;right:-4%;left:auto;bottom:5px;width:55%;height:39px;opacity:.7;z-index:0}
+ .hero-meta{position:absolute;order:initial;bottom:1px;right:0;max-width:52%;width:52%;margin:0;text-align:right;font-size:clamp(7px,1.92vw,9px);line-height:1.25;opacity:.8;z-index:2}
+ .hero-cta-zone{margin-top:5px;padding:0 0 8px}
+ .hero-cta-zone::before{inset:auto -6% 0;height:17px}
+ .cta{min-height:64px;font-size:clamp(19px,5.65vw,25px);padding:9px 14px}
+ .trust-line{margin:10px auto 0;padding:0 4px;gap:7px;line-height:1.30;font-size:clamp(9.5px,2.75vw,13px);white-space:nowrap;flex-wrap:nowrap}
+ .trust-line i{width:5px;height:5px}
+ .hero-cta-zone::before{display:none}
+ .benefits{padding:5px 0 52px}
+ .section-title{position:relative;margin-bottom:18px}
+ .section-title::before,.section-title::after{content:"";position:absolute;bottom:9px;width:12%;height:3px;border-radius:9px;background:#ff1732;box-shadow:0 0 8px rgba(255,23,50,.4)}
+ .section-title::before{left:0}.section-title::after{right:0}
+ .benefits::before{display:none}
+}
+@media(max-width:365px){
+ .hero-scene{min-height:0;padding-top:16px}
+ .hero-copy{width:100%}
+ h1{font-size:clamp(24px,7.3vw,27px)}
+ .hero-hook{font-size:clamp(11.6px,3.55vw,12.6px);margin-top:17px;line-height:1.30}
+ .hero-phone{width:calc(100% + 23px);right:auto;top:-20px;margin-left:-5px}
+ .trust-line{font-size:clamp(9px,2.8vw,10px);gap:4px;flex-wrap:nowrap;white-space:nowrap}
+ .cta{font-size:clamp(18px,5.3vw,20px);gap:8px}
+}
+@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*::before,*::after{transition:none!important;animation:none!important}}
 </style>
 </head><body>
 <a class="skip" href="#conteudo">Ir para o conteúdo</a>
