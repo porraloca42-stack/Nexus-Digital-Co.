@@ -1,6 +1,6 @@
 import { DurableObject } from 'cloudflare:workers';
 import { cleanSource, dateInSaoPaulo, nextClick, validateConfig, retainMetricsForGroups } from './rotation.mjs';
-import { landingHtml, privacyHtml } from './landing.mjs';
+import { landingHtml, privacyHtml } from './landing-v3.mjs';
 import { renderInviteTest } from './invite-test.mjs';
 
 const DEFAULT_CONFIG = { limit: 1000, groups: [] };
