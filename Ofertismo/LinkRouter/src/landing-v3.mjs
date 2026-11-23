@@ -192,6 +192,33 @@ details p{margin:0;padding:0 21px 22px;color:#d5cbd0;line-height:1.6;font-size:1
   .sticky{display:block}
 }
 
+
+/* V3.4: desktop compacto; preserva integralmente a composição mobile aprovada. */
+@media(min-width:641px){
+  .v3-top .shell{width:min(1140px,calc(100% - 62px))}
+  .site-head{padding:12px 0 10px}
+  .brand-tag{font-size:clamp(12px,1.2vw,15px);letter-spacing:.12em;margin-top:6px}
+  .vip-kicker{font-size:clamp(15px,1.8vw,21px);padding:9px 16px}
+  .hero-scene{min-height:610px;padding-top:34px}
+  .hero-copy{width:56%;max-width:620px}
+  .hero-phone{width:min(40%,395px);right:1%;top:18px}
+  .hero-hook{margin-top:29px;font-size:clamp(20px,2vw,26px);max-width:510px}
+  .hero-ring{right:3%;bottom:3%;width:44%;height:8%}
+  .hero-cta-zone{margin-top:0;padding:0 4px 13px}
+  .hero-cta-zone::before{inset:12% -6% -15%}
+  .cta{min-height:97px}
+  .trust-line{margin-top:15px}
+  .benefits{padding:43px 0 61px}
+}
+@media(min-width:641px) and (max-width:900px){
+  .hero-scene{min-height:clamp(505px,60vw,548px);padding-top:28px}
+  .hero-phone{width:min(45%,365px);right:0;top:9px}
+  .hero-hook{font-size:clamp(16px,2.5vw,21px);margin-top:23px}
+  h1{font-size:clamp(31px,5vw,46px)}
+  .brand-tag{font-size:11px}
+  .cta{min-height:80px}
+}
+
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*::before,*::after{transition:none!important;animation:none!important}}
 </style>
 </head><body>
@@ -199,7 +226,7 @@ details p{margin:0;padding:0 21px 22px;color:#d5cbd0;line-height:1.6;font-size:1
 <main id="conteudo">
 <section class="v3-reference-mobile" aria-labelledby="v3-art-heading">
  <div class="v3-art-canvas">
-  <img class="v3-approved-art" src="/v33-mockup-mobile.webp" width="864" height="1536" fetchpriority="high" decoding="async" alt="Ofertismo VIP — pare de pagar caro, entre para o VIP! Grupo gratuito de ofertas, cupons e achados com um exemplo visual de ofertas no WhatsApp.">
+  <img class="v3-approved-art" src="/v34-mockup-phone-sharp.webp" width="1728" height="3072" fetchpriority="high" decoding="async" alt="Ofertismo VIP — pare de pagar caro, entre para o VIP! Grupo gratuito de ofertas, cupons e achados com um exemplo visual de ofertas no WhatsApp.">
   <div class="v3-art-a11y">
    <h1 id="v3-art-heading">PARE DE PAGAR CARO. ENTRE PARA O VIP!</h1>
    <p>Imagine comprar um produto hoje e descobrir amanhã que poderia ter pago até 50% menos numa oferta relâmpago ou bug de preço.</p>
@@ -237,7 +264,6 @@ details p{margin:0;padding:0 21px 22px;color:#d5cbd0;line-height:1.6;font-size:1
    </div>
    <div class="hero-ring" aria-hidden="true"></div>
    <img class="hero-phone" src="/celular-ofertas-hd.webp" alt="Ilustração de uma mão segurando celular com exemplo de grupo de ofertas, produtos e preços promocionais fictícios" width="958" height="1402" fetchpriority="high" decoding="async">
-   <span class="hero-meta">Ofertas exibidas no celular são ilustrativas, não estão disponíveis para compra.</span>
  </section>
  <div class="hero-cta-zone"><a class="cta join-cta" id="hero-cta" href="/entrar/direto" aria-label="Entrar grátis no grupo VIP do Ofertismo pelo WhatsApp">
  <span class="cta-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 0 0-8.7 15L2 22l5.2-1.3A10 10 0 1 0 12 2zm0 2a8 8 0 1 1-3.7 15.1l-.4-.2-2.7.7.7-2.6-.2-.4A8 8 0 0 1 12 4zm-3.4 3.5c-.5 0-.8.3-1 1-.2.6-.2 1.4.2 2.3.9 2.1 3 4.4 5.6 5.4.9.3 1.6.3 2.1.1.7-.3 1.2-1.2 1.2-1.7 0-.3-.1-.4-.4-.5l-2-.9c-.3-.1-.5-.1-.7.2l-.8 1c-.2.2-.3.3-.6.1-1.3-.7-2.3-1.7-3-3-.2-.3-.1-.4.1-.6l.7-.8c.2-.2.3-.4.2-.7l-.9-2.1c-.2-.4-.3-.5-.7-.5z"/></svg></span>
