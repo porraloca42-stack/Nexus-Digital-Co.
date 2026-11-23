@@ -211,7 +211,7 @@ details p{margin:0;padding:0 21px 22px;color:#d5cbd0;line-height:1.6;font-size:1
   .benefits{padding:43px 0 61px}
 }
 @media(min-width:641px) and (max-width:900px){
-  .hero-scene{min-height:505px;padding-top:28px}
+  .hero-scene{min-height:clamp(505px,60vw,548px);padding-top:28px}
   .hero-phone{width:min(45%,365px);right:0;top:9px}
   .hero-hook{font-size:clamp(16px,2.5vw,21px);margin-top:23px}
   h1{font-size:clamp(31px,5vw,46px)}
