@@ -169,11 +169,57 @@ details p{margin:0;padding:0 21px 22px;color:#d5cbd0;line-height:1.6;font-size:1
  .trust-line{font-size:clamp(9px,2.8vw,10px);gap:4px;flex-wrap:nowrap;white-space:nowrap}
  .cta{font-size:clamp(18px,5.3vw,20px);gap:8px}
 }
+
+/* V3.3 — arte visual aprovada, sem reinterpretação da composição no celular. */
+.v3-reference-mobile{display:none}
+@media(max-width:640px){
+  .v3-reference-mobile{display:block;background:#07060a}
+  .v3-top,.benefits{display:none!important}
+  .v3-art-canvas{position:relative;width:100%;line-height:0}
+  .v3-approved-art{display:block;width:100%;height:auto;max-width:none}
+  .v3-art-cta,.v3-art-brand{position:absolute;z-index:5;display:block;text-decoration:none}
+  .v3-art-cta{top:61.4%;left:3.8%;width:92.2%;height:10.35%;border-radius:999px;cursor:pointer}
+  .v3-art-cta:focus-visible,.v3-art-brand:focus-visible,.v3-art-menu-toggle:focus-visible{outline:3px solid white;outline-offset:2px}
+  .v3-art-brand{top:0;left:3%;width:70%;height:9%}
+  .v3-art-menu-toggle{position:absolute;z-index:20;top:1%;right:2.3%;width:13%;height:6%;border:0;border-radius:6px;background:transparent;color:transparent;cursor:pointer}
+  .v3-art-menu{position:absolute;z-index:30;right:3.5%;top:7.8%;width:min(250px,75%);background:#16080e;border:1px solid #ff7534;border-radius:13px;box-shadow:0 12px 26px #000b;padding:8px;line-height:1.4}
+  .v3-art-menu[hidden]{display:none!important}
+  .v3-art-menu a{display:block;padding:12px 10px;border-radius:6px;color:#fff;font-size:15px;font-weight:780;text-decoration:none}
+  .v3-art-menu a:hover,.v3-art-menu a:focus-visible{background:#4e1918}
+  .v3-art-features-anchor{position:absolute;left:0;top:78%;width:1px;height:1px}
+  .v3-art-a11y{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;clip-path:inset(50%)}
+  .next-area{padding-top:44px}
+  .sticky{display:block}
+}
+
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*::before,*::after{transition:none!important;animation:none!important}}
 </style>
 </head><body>
 <a class="skip" href="#conteudo">Ir para o conteúdo</a>
-<main id="conteudo"><div class="v3-top">
+<main id="conteudo">
+<section class="v3-reference-mobile" aria-labelledby="v3-art-heading">
+ <div class="v3-art-canvas">
+  <img class="v3-approved-art" src="/v33-mockup-mobile.webp" width="864" height="1536" fetchpriority="high" decoding="async" alt="Ofertismo VIP — pare de pagar caro, entre para o VIP! Grupo gratuito de ofertas, cupons e achados com um exemplo visual de ofertas no WhatsApp.">
+  <div class="v3-art-a11y">
+   <h1 id="v3-art-heading">PARE DE PAGAR CARO. ENTRE PARA O VIP!</h1>
+   <p>Imagine comprar um produto hoje e descobrir amanhã que poderia ter pago até 50% menos numa oferta relâmpago ou bug de preço.</p>
+   <p>100% gratuito, sem mensalidade. Saia quando quiser.</p>
+   <h2>Por que entrar no Ofertismo VIP?</h2>
+   <p>Cupons especiais, achados imperdíveis e seleção VIP.</p>
+  </div>
+  <a class="v3-art-brand" href="/" aria-label="Ofertismo — início"></a>
+  <button id="v3-art-menu-btn" class="v3-art-menu-toggle" type="button" aria-label="Abrir menu" aria-expanded="false" aria-controls="v3-art-menu"></button>
+  <nav id="v3-art-menu" class="v3-art-menu" aria-label="Navegação da página" hidden>
+   <a href="#v3-art-features">Benefícios do VIP</a>
+   <a href="#como-funciona">Como funciona</a>
+   <a href="#perguntas">Dúvidas frequentes</a>
+   <a href="#participar">Entrar no grupo</a>
+  </nav>
+  <span id="v3-art-features" class="v3-art-features-anchor" aria-hidden="true"></span>
+  <a id="v3-art-cta" class="v3-art-cta join-cta" href="/entrar/direto" aria-label="Entrar grátis no grupo VIP pelo WhatsApp"></a>
+ </div>
+</section>
+<div class="v3-top">
 <header class="site-head shell">
  <a class="brand" href="/" aria-label="Ofertismo — página inicial">
   <img class="brand-logo" src="/logo-oft.webp" width="192" height="192" alt="Logo oficial OFT, carrinho de ofertas">
@@ -232,15 +278,31 @@ details p{margin:0;padding:0 21px 22px;color:#d5cbd0;line-height:1.6;font-size:1
  nav.querySelectorAll('a').forEach(function(a){a.addEventListener('click',closeMenu)});
  document.addEventListener('keydown',function(e){if(e.key==='Escape')closeMenu()});
  document.addEventListener('click',function(e){if(!e.target.closest('.nav-wrap'))closeMenu()});
+
+ var artMenuButton=document.getElementById('v3-art-menu-btn'),artMenu=document.getElementById('v3-art-menu');
+ function closeArtMenu(){
+   artMenu.hidden=true;
+   artMenuButton.setAttribute('aria-expanded','false');
+   artMenuButton.setAttribute('aria-label','Abrir menu');
+ }
+ artMenuButton.addEventListener('click',function(){
+   var open=artMenuButton.getAttribute('aria-expanded')!=='true';
+   artMenu.hidden=!open;
+   artMenuButton.setAttribute('aria-expanded',String(open));
+   artMenuButton.setAttribute('aria-label',open?'Fechar menu':'Abrir menu');
+ });
+ artMenu.querySelectorAll('a').forEach(function(a){a.addEventListener('click',closeArtMenu)});
+ document.addEventListener('keydown',function(e){if(e.key==='Escape')closeArtMenu()});
+ document.addEventListener('click',function(e){if(!e.target.closest('.v3-art-menu')&&!e.target.closest('.v3-art-menu-toggle'))closeArtMenu()});
  var p=new URLSearchParams(location.search),origin=(p.get('origem')||p.get('utm_source')||'').toLowerCase().trim(),source='direto';
  if(['meta','facebook','instagram','fb','ig','metaads'].includes(origin)||(!origin&&p.has('fbclid')))source='meta';
  else if(['team','teamlanders','team-landers'].includes(origin))source='team';
  else if(['telegram','tg'].includes(origin))source='telegram';
  else if(['social','tiktok','youtube'].includes(origin))source='social';
  document.querySelectorAll('.join-cta').forEach(function(a){a.href='/entrar/'+source});
- var sticky=document.getElementById('sticky'),heroCTA=document.getElementById('hero-cta');
- if('IntersectionObserver' in window){new IntersectionObserver(function(entries){var e=entries[0];sticky.classList.toggle('active',!e.isIntersecting&&e.boundingClientRect.bottom<0)},{threshold:0}).observe(heroCTA)}
- else{function sync(){sticky.classList.toggle('active',heroCTA.getBoundingClientRect().bottom<0)}window.addEventListener('scroll',sync,{passive:true});sync()}
+ var sticky=document.getElementById('sticky'),heroCTA=document.getElementById('hero-cta'),artCTA=document.getElementById('v3-art-cta');
+ function syncSticky(){var current=window.matchMedia('(max-width:640px)').matches?artCTA:heroCTA;sticky.classList.toggle('active',current.getBoundingClientRect().bottom<0)}
+ window.addEventListener('scroll',syncSticky,{passive:true});window.addEventListener('resize',syncSticky);syncSticky();
  if(location.hostname==='localhost')return;
  !function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,document,'script','https://connect.facebook.net/en_US/fbevents.js');
  fbq('init','2468079523719290');fbq('track','PageView');
