@@ -2,7 +2,6 @@ import { DurableObject } from 'cloudflare:workers';
 import { cleanSource, dateInSaoPaulo, nextClick, validateConfig, retainMetricsForGroups } from './rotation.mjs';
 import { landingHtml, privacyHtml } from './landing.mjs';
 import { renderInviteTest } from './invite-test.mjs';
-import { renderChooserPage } from './chooser.mjs';
 
 const DEFAULT_CONFIG = { limit: 1000, groups: [] };
 const DEFAULT_METRICS = { total: 0, groupIndex: 0, byGroup: {}, bySource: {}, byDaySource: {} };
@@ -128,28 +127,6 @@ export default {
         return new Response('Convite indisponível para o teste.', { status: 503, headers: { 'cache-control': 'no-store' } });
       }
     }
-    // Seleciona o grupo da vez ao tocar no CTA da landing.
-    // Não redireciona: o visitante escolhe o aplicativo por um segundo toque.
-    if (path === '/api/entrar/selecionar' && request.method === 'POST') {
-      const origin = request.headers.get('origin');
-      if ((origin && origin !== url.origin) || request.headers.get('sec-fetch-site') === 'cross-site') {
-        return reply({ error: 'Origem inválida.' }, 403);
-      }
-      const agent = request.headers.get('user-agent') || '';
-      if (/(bot|crawler|spider|preview|facebookexternalhit|curl|headless|slackbot)/i.test(agent)) {
-        return reply({ error: 'Visualização automatizada não contabilizada.' }, 403);
-      }
-      let payload;
-      try { payload = await request.json(); }
-      catch { return reply({ error: 'Solicitação inválida.' }, 400); }
-      const source = cleanSource(payload?.source || 'direto');
-      const selection = await stub.fetch('https://router.local/internal/redirect', {
-        method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ source })
-      });
-      if (!selection.ok) return selection;
-      const { url: invite } = await selection.json();
-      return reply({ url: invite });
-    }
     if (path === '/api/admin/config' && (request.method === 'GET' || request.method === 'POST')) {
       if (!isAuthorized(request, env)) return reply({ error: 'Não autorizado.' }, 401);
       const internal = request.method === 'GET' ? '/internal/stats' : '/internal/config';
@@ -175,20 +152,7 @@ export default {
         return new Response(body, { status: 503, headers: { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store' } });
       }
       const { url: target } = await result.json();
-      // Página de escolha: link Android Intent a partir de toque real + convite oficial como fallback.
-      // Para Telegram, mantém o antigo comportamento de redirecionamento.
-      try {
-        return new Response(renderChooserPage(target, agent), {
-          headers: {
-            'content-type': 'text/html; charset=utf-8',
-            'cache-control': 'no-store', 'x-robots-tag': 'noindex, nofollow',
-            'referrer-policy': 'no-referrer', 'x-content-type-options': 'nosniff',
-            'x-frame-options': 'DENY'
-          }
-        });
-      } catch {
-        return Response.redirect(target, 302);
-      }
+      return Response.redirect(target, 302);
     }
     return reply({ error: 'Rota não encontrada. Use /entrar/team, /entrar/meta ou /admin.' }, 404);
   }
