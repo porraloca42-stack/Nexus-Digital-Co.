@@ -37,7 +37,7 @@ img{display:block;max-width:100%}a{color:inherit}button{font:inherit;cursor:poin
 .hero-copy{position:relative;z-index:2;width:52%;max-width:600px;pointer-events:none}
 h1{margin:0;font-size:clamp(49px,5vw,73px);font-style:italic;line-height:.98;letter-spacing:-.058em;font-weight:1000;text-shadow:0 2px 3px #000,0 3px 14px #000}
 h1 .white,h1 .warm{display:block}
-h1 .warm{margin-top:5px;filter:drop-shadow(0 4px 2px rgba(255,31,0,.3))}h1 .warm .title-line{background:linear-gradient(180deg,#fff228 0%,#ffc72b 40%,#ff9607 100%);-webkit-background-clip:text;background-clip:text;color:transparent}
+h1 .warm{margin-top:5px;color:#ffce18;text-shadow:0 3px 2px rgba(255,50,0,.36),0 0 12px rgba(248,48,0,.2)}
 .title-line{display:block}
 .hero-hook{position:relative;margin:38px 0 0;padding:0 0 0 24px;font-size:clamp(22px,2.4vw,27px);line-height:1.32;font-weight:700;letter-spacing:-.028em;max-width:490px;text-shadow:0 2px 8px rgba(0,0,0,.82)}
 .hero-hook:before{content:"";position:absolute;left:0;top:0;bottom:0;width:5px;border-radius:5px;background:#ff2130}
