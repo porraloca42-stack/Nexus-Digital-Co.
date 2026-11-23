@@ -102,7 +102,39 @@ details p{margin:0;padding:0 21px 22px;color:#d5cbd0;line-height:1.6;font-size:1
  .footer{padding-bottom:95px}.sticky{display:block;position:fixed;bottom:0;left:0;right:0;z-index:55;padding:10px 14px calc(10px + env(safe-area-inset-bottom));border-top:1px solid rgba(255,96,47,.45);background:rgba(7,6,11,.96);backdrop-filter:blur(12px);transform:translateY(110%);opacity:0;pointer-events:none;transition:transform .25s,opacity .25s}.sticky.active{transform:translateY(0);opacity:1;pointer-events:auto}.sticky .cta{min-height:48px;font-size:15px;padding:9px;gap:10px}.sticky .cta-icon{width:32px;height:32px;border-width:2px}.sticky .cta-icon svg{width:18px;height:18px}.sticky .cta-divider{height:27px}.sticky .cta-arrow{font-size:23px}
 }
 @media(max-width:365px){.hero-scene{min-height:335px}.hero-copy{width:59%}h1{font-size:clamp(27px,7.3vw,29px)}.hero-hook{font-size:12px;margin-top:20px}.hero-phone{width:67%;right:-9%}.vip-kicker{letter-spacing:-.02em}.cta{font-size:18px}.trust-line{font-size:9px;gap:5px;white-space:nowrap}}
-@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*::before,*::after{transition:none!important;animation:none!important}}
+/* V3.1 – hero mobile sem sobreposição: headline, texto e celular em blocos separados. */
+@media(max-width:640px){
+ .site-head{padding:9px 0 16px}
+ .brand-logo{width:58px;height:58px}
+ .vip-kicker{font-size:clamp(11px,3.1vw,14px);line-height:1.27;padding:11px 8px}
+ .hero-scene{display:flex;flex-direction:column;align-items:center;min-height:0;padding-top:27px;gap:14px}
+ .hero-copy{position:relative;order:0;width:100%;max-width:100%;text-align:center;pointer-events:auto}
+ h1{font-size:clamp(36px,10.3vw,52px);line-height:1.03;letter-spacing:-.047em}
+ .title-line{white-space:normal}
+ h1 .warm{margin-top:9px}
+ .hero-hook{max-width:40ch;margin:26px auto 0;padding:0 0 0 16px;text-align:left;font-size:clamp(17px,4.35vw,20px);line-height:1.47;letter-spacing:-.015em;font-weight:680}
+ .hero-hook:before{width:4px}
+ .hero-phone{position:relative;order:1;right:auto;top:auto;width:min(100%,445px);max-width:445px;height:auto;margin:0 auto;filter:drop-shadow(0 11px 16px rgba(0,0,0,.72))}
+ .hero-ring{right:auto;left:7%;bottom:61px;width:86%;height:57px;z-index:0;opacity:.8}
+ .hero-meta{position:relative;order:2;bottom:auto;right:auto;font-size:11px;line-height:1.4;max-width:100%;width:100%;margin:0 auto;text-align:center;opacity:.9}
+ .hero-cta-zone{margin-top:22px;padding:0 0 58px}
+ .hero-cta-zone::before{inset:auto -6% 0;height:27px;border-radius:50%;border-bottom:2px solid rgba(255,25,35,.58);box-shadow:0 10px 25px rgba(255,20,32,.18)}
+ .cta{min-height:83px;padding:14px 14px;gap:12px;font-size:clamp(19px,5.45vw,27px)}
+ .cta .cta-icon{width:50px;height:50px}.cta-icon svg{width:30px;height:30px}.cta-divider{height:44px}
+ .trust-line{max-width:560px;margin:24px auto 0;padding:0 7px;gap:8px 10px;font-size:clamp(12px,3.25vw,15px);line-height:1.42;flex-wrap:wrap;white-space:normal}
+ .trust-line i{width:6px;height:6px}
+ .benefits{padding:45px 0 55px}
+ .benefits::before{inset:0 0 auto;height:8px}
+}
+@media(max-width:365px){
+ .hero-scene{min-height:0;padding-top:27px}
+ .hero-copy{width:100%}
+ h1{font-size:clamp(33px,10vw,39px)}
+ .hero-hook{font-size:16px;margin-top:22px;line-height:1.5}
+ .hero-phone{width:100%;right:auto}
+ .trust-line{font-size:12px;gap:8px;white-space:normal}
+ .cta{font-size:19px;gap:8px}
+}@media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}*,*::before,*::after{transition:none!important;animation:none!important}}
 </style>
 </head><body>
 <a class="skip" href="#conteudo">Ir para o conteúdo</a>
@@ -123,7 +155,7 @@ details p{margin:0;padding:0 21px 22px;color:#d5cbd0;line-height:1.6;font-size:1
     <p class="hero-hook">Imagine comprar um produto hoje e descobrir amanhã que poderia ter pago <strong>até 50% menos</strong> numa oferta relâmpago ou bug de preço!</p>
    </div>
    <div class="hero-ring" aria-hidden="true"></div>
-   <img class="hero-phone" src="/celular-ofertas.webp" alt="Ilustração de uma mão segurando celular com exemplo de grupo de ofertas, produtos e preços promocionais fictícios" width="400" height="585" fetchpriority="high">
+   <img class="hero-phone" src="/celular-ofertas-hd.webp" alt="Ilustração de uma mão segurando celular com exemplo de grupo de ofertas, produtos e preços promocionais fictícios" width="958" height="1402" fetchpriority="high" decoding="async">
    <span class="hero-meta">Ofertas exibidas no celular são ilustrativas, não estão disponíveis para compra.</span>
  </section>
  <div class="hero-cta-zone"><a class="cta join-cta" id="hero-cta" href="/entrar/direto" aria-label="Entrar grátis no grupo VIP do Ofertismo pelo WhatsApp">
@@ -172,8 +204,8 @@ details p{margin:0;padding:0 21px 22px;color:#d5cbd0;line-height:1.6;font-size:1
  else if(['social','tiktok','youtube'].includes(origin))source='social';
  document.querySelectorAll('.join-cta').forEach(function(a){a.href='/entrar/'+source});
  var sticky=document.getElementById('sticky'),heroCTA=document.getElementById('hero-cta');
- if('IntersectionObserver' in window){new IntersectionObserver(function(entries){sticky.classList.toggle('active',!entries[0].isIntersecting)},{threshold:0}).observe(heroCTA)}
- else{function sync(){sticky.classList.toggle('active',scrollY>800)}window.addEventListener('scroll',sync,{passive:true});sync()}
+ if('IntersectionObserver' in window){new IntersectionObserver(function(entries){var e=entries[0];sticky.classList.toggle('active',!e.isIntersecting&&e.boundingClientRect.bottom<0)},{threshold:0}).observe(heroCTA)}
+ else{function sync(){sticky.classList.toggle('active',heroCTA.getBoundingClientRect().bottom<0)}window.addEventListener('scroll',sync,{passive:true});sync()}
  if(location.hostname==='localhost')return;
  !function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,document,'script','https://connect.facebook.net/en_US/fbevents.js');
  fbq('init','2468079523719290');fbq('track','PageView');
