@@ -1,0 +1,10 @@
+# CAPI Ofertismo — preparação isolada
+Status: módulo base sem integração no Worker, sem token, sem deploy. Não modifica Pixel ou campanha. 
+- Antes de conectar: revisar política de privacidade e mecanismo de consentimento aplicável ao marketing Pixel+CAPI. Não contornar recusa/bloqueios deliberados; usar dados somente de maneira autorizada.
+- Usar o dataset 2468079523719290 e token dedicado criado no Gerenciador de Eventos. Inserir diretamente no Cloudflare Worker como Secret META_CAPI_TOKEN; nunca no GitHub/chat/log.
+- Criar ambiente de teste separado com configuração e armazenamento isolados. Definir META_CAPI_ENABLED=true e META_CAPI_TEST_EVENT_CODE apenas para teste. Confirmar versão de Graph API suportada antes de produção.
+- Integrar somente PageView real e Lead no clique real já existente. Gerar ID único por evento e usar exatamente o mesmo eventID no fbq e event_id no servidor, sem enviar dois Leads independentes. Evitar eventos em prévias, reloads artificiais, crawlers e cliques de teste em produção. Disparo servidor assíncrono com ctx.waitUntil; não bloquear CTA em erro Meta. Endpoint de ingestão deve ter validação origem/método, limite de abuso, consentimento e proteção contra replay. Cookies fbp/fbc somente reais e autorizados; IP somente do contexto confiável do Worker; não inferir identidade. Não armazenar dados pessoais nos contadores. 
+- Validar no Gerenciador de Eventos: mesmo nome/ID nos canais browser e server, uma conversão lógica, eventos de teste recebidos, erros e EMQ se disponível. Testes unitários ainda precisam execução; não alegar integração concluída.
+- Produção exige revisão do diff, teste ponta a ponta e autorização. Rollback: desligar flag e reverter versão se necessário; preservar LinkRouter, contadores, destino, Pixel e T02.
+- Lead = clique, não adesão. Não enviar Purchase, CompleteRegistration ou Subscribe sem fato correspondente.
+- Referências: https://developers.facebook.com/docs/marketing-api/conversions-api/parameters/v25.0/ ; https://developers.cloudflare.com/workers/configuration/secrets/ ; https://developers.cloudflare.com/workers/runtime-apis/context/.
