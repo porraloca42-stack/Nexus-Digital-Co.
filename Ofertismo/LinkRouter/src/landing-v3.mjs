@@ -325,7 +325,8 @@ details p{margin:0;padding:0 21px 22px;color:#d5cbd0;line-height:1.6;font-size:1
  else if(['team','teamlanders','team-landers'].includes(origin))source='team';
  else if(['telegram','tg'].includes(origin))source='telegram';
  else if(['social','tiktok','youtube'].includes(origin))source='social';
- document.querySelectorAll('.join-cta').forEach(function(a){a.href='/entrar/'+source});
+ var creative=(source==='meta'&&p.get('utm_campaign')==='oft_t03'&&['imagem_01','video_01'].includes(p.get('utm_content')))?p.get('utm_content'):'';
+ document.querySelectorAll('.join-cta').forEach(function(a){a.href='/entrar/'+source+(creative?'?utm_campaign=oft_t03&utm_content='+creative:'')});
  var sticky=document.getElementById('sticky'),heroCTA=document.getElementById('hero-cta'),artCTA=document.getElementById('v3-art-cta');
  function syncSticky(){var current=window.matchMedia('(max-width:640px)').matches?artCTA:heroCTA;sticky.classList.toggle('active',current.getBoundingClientRect().bottom<0)}
  window.addEventListener('scroll',syncSticky,{passive:true});window.addEventListener('resize',syncSticky);syncSticky();
