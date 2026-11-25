@@ -19,7 +19,7 @@ test('desativada por padrão, sem acesso à rede',async()=>{
 });
 test('token no header, evento de teste e mesmo ID',async()=>{
  const r=await sendCapi(input,{META_CAPI_ENABLED:'true',META_CAPI_TOKEN:'fake-test-token',META_CAPI_TEST_EVENT_CODE:'TEST123'},async(url,req)=>{
-  assert.ok(url.endsWith('/2468079523719290/events'));
+  assert.ok(url.endsWith('/29104010142601422/events'));
   assert.equal(req.headers.authorization,'Bearer fake-test-token');
   const b=JSON.parse(req.body);
   assert.equal(b.test_event_code,'TEST123');
