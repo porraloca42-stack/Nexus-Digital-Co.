@@ -339,13 +339,15 @@ details p{margin:0;padding:0 21px 22px;color:#d5cbd0;line-height:1.6;font-size:1
  document.querySelectorAll('.join-cta').forEach(function(a){a.addEventListener('click',function(){if(window.fbq)fbq('track','Lead')})});
   return;
  }
- if(!ticket||location.origin!=='https://ofertismo.com.br')return;
+ var preview=typeof ticket==='string'&&ticket.endsWith('.preview')&&location.hostname.endsWith('-ofertismo-link-router.porraloca42.workers.dev');
+ if(!ticket||(!preview&&location.origin!=='https://ofertismo.com.br'))return;
  var pageId=ticket.split('.')[0], initialized=false, leadSent=false;
  function preference(){return document.cookie.split(';').map(function(s){return s.trim()}).find(function(s){return s.indexOf('oft_measure=')===0})||''}
  function initialize(){
   if(preference()!=='oft_measure=yes')return;
   if(initialized){if(window.fbq)fbq('consent','grant');return;}
   initialized=true;
+  if(preview){window.fbq=function(){(window.__oftPreviewEvents=window.__oftPreviewEvents||[]).push(Array.from(arguments))};}
   !function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,document,'script','https://connect.facebook.net/en_US/fbevents.js');
   fbq('set','autoConfig',false,'29104010142601422');
   fbq('init','29104010142601422');fbq('consent','grant');
