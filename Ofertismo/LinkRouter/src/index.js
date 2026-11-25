@@ -116,10 +116,15 @@ export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
     const path = url.pathname;
+    const preview=url.hostname.endsWith('-ofertismo-link-router.porraloca42.workers.dev');
+    if(preview&&(/^\/(entrar|go)(\/|$)/.test(path)||path==='/api/measurement/pageview')){
+      return reply({ok:true,preview:true,route:path,tracking:false,groupCounters:false,utm_campaign:url.searchParams.get('utm_campaign'),utm_content:url.searchParams.get('utm_content'),eventID:url.searchParams.has('measurement_ticket')?url.searchParams.get('measurement_ticket').split('.')[0]+'_Lead':null});
+    }
     if (path === '/health' && request.method === 'GET') return reply({ status: 'ok', app: 'ofertismo-router' });
     if ((path === '/' || path === '/inicio') && request.method === 'GET') {
       let ticket=null;
-      if(env.META_CAPI_ENABLED==='true'){
+      if(preview)ticket=crypto.randomUUID()+'.preview';
+      else if(env.META_CAPI_ENABLED==='true'){
         ticket='';
         if(url.origin==='https://ofertismo.com.br'&&allowed(env)){
           try{ticket=await issueTicket(path,env)}catch{}
