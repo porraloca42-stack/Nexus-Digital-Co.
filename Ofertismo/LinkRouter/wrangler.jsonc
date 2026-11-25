@@ -4,7 +4,19 @@
   "main": "src/index.js",
   "compatibility_date": "2026-11-22",
   "workers_dev": true,
-  "previews": {},
+  "previews": {
+    "vars": {
+      "META_CAPI_PREVIEW_ENABLED": "false"
+    },
+    "durable_objects": {
+      "bindings": [
+        {
+          "name": "ROUTER_STATE",
+          "class_name": "LinkRouterState"
+        }
+      ]
+    }
+  },
   "durable_objects": {
     "bindings": [
       {
