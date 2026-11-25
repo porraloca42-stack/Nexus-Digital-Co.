@@ -57,6 +57,11 @@ export async function handleCapiPreviewTest(request,env,fetchImpl=fetch){
     const result=await response.json();
     // Return only diagnostics safe to share, never payload, credentials or raw Graph errors.
     const ok=response.ok&&result.events_received===1;
-    return json({ok,test:true,dataset:DATASET,event_id:id,events_received:Number(result.events_received)||0,graph_status:response.status},ok?200:502);
+    const diagnostic={};
+    if(!ok&&result.error){
+      if(Number.isSafeInteger(result.error.code))diagnostic.graph_error_code=result.error.code;
+      if(Number.isSafeInteger(result.error.error_subcode))diagnostic.graph_error_subcode=result.error.error_subcode;
+    }
+    return json({ok,test:true,dataset:DATASET,event_id:id,events_received:Number(result.events_received)||0,graph_status:response.status,...diagnostic},ok?200:502);
   }catch{return json({ok:false,test:true,reason:'transport_error'},502);}
 }

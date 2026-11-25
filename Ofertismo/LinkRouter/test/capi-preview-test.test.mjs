@@ -46,7 +46,11 @@ test('only new dataset, explicit test code, matching ID, isolated claim, minimal
 });
 test('transport errors redact Graph content',async()=>{
  const {env}=setup();
- const response=await handleCapiPreviewTest(req(),env,async()=>new Response(JSON.stringify({error:{message:'private detail'}}),{status:400}));
+ const response=await handleCapiPreviewTest(req(),env,async()=>new Response(JSON.stringify({error:{message:'private detail',code:100,error_subcode:2804005}}),{status:400}));
  assert.equal(response.status,502);
- assert.equal((await response.json()).graph_status,400);
+ const result=await response.json();
+ assert.equal(result.graph_status,400);
+ assert.equal(result.graph_error_code,100);
+ assert.equal(result.graph_error_subcode,2804005);
+ assert.ok(!JSON.stringify(result).includes('private detail'));
 });
