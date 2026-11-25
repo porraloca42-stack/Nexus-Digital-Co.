@@ -2,6 +2,7 @@ import { DurableObject } from 'cloudflare:workers';
 import { cleanSource, dateInSaoPaulo, nextClick, validateConfig, retainMetricsForGroups } from './rotation.mjs';
 import { landingHtml, privacyHtml } from './landing-v3.mjs';
 import { renderInviteTest } from './invite-test.mjs';
+import { allowed, issueTicket, dispatchMeasurement } from './measurement.mjs';
 
 const DEFAULT_CONFIG = { limit: 1000, groups: [] };
 const DEFAULT_METRICS = { total: 0, groupIndex: 0, byGroup: {}, bySource: {}, byDaySource: {} };
@@ -14,8 +15,21 @@ function reply(data, status = 200) {
 }
 
 export class LinkRouterState extends DurableObject {
+  async alarm() { await this.ctx.storage.deleteAll(); } // somente objetos isolados measurement:<id> recebem alarmes
   async fetch(request) {
     const path = new URL(request.url).pathname;
+    if (path === '/internal/measurement-claim' && request.method === 'POST') {
+      const {name}=await request.json();
+      if(!['PageView','Lead'].includes(name))return reply({ok:false},400);
+      const claimed=await this.ctx.storage.transaction(async txn=>{
+        const key='event:'+name;
+        if(await txn.get(key))return false;
+        await txn.put(key,true);return true;
+      });
+      if(!claimed)return reply({ok:false},409);
+      await this.ctx.storage.setAlarm(Date.now()+7200000);
+      return reply({ok:true});
+    }
     if (path === '/internal/stats') {
       const [config, metrics] = await Promise.all([
         this.ctx.storage.get('config'), this.ctx.storage.get('metrics')
@@ -45,12 +59,12 @@ export class LinkRouterState extends DurableObject {
       return reply({ ok: true });
     }
     if (path === '/internal/redirect' && request.method === 'POST') {
-      const { source } = await request.json();
+      const { source, campaign, creative } = await request.json();
       let result;
       await this.ctx.storage.transaction(async (txn) => {
         const config = (await txn.get('config')) || DEFAULT_CONFIG;
         const metrics = (await txn.get('metrics')) || DEFAULT_METRICS;
-        result = nextClick(config, metrics, cleanSource(source), dateInSaoPaulo());
+        result = nextClick(config, metrics, cleanSource(source), dateInSaoPaulo(), campaign, creative);
         if (result.target) await txn.put('metrics', result.metrics);
       });
       if (!result.target) return reply({ error: result.reason }, 503);
@@ -99,12 +113,32 @@ el('reset').onclick=async()=>{
 }
 
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     const url = new URL(request.url);
     const path = url.pathname;
     if (path === '/health' && request.method === 'GET') return reply({ status: 'ok', app: 'ofertismo-router' });
     if ((path === '/' || path === '/inicio') && request.method === 'GET') {
-      return new Response(landingHtml, { headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'public, max-age=300', 'x-content-type-options': 'nosniff', 'x-frame-options': 'DENY' } });
+      let ticket=null;
+      if(env.META_CAPI_ENABLED==='true'){
+        ticket='';
+        if(url.origin==='https://ofertismo.com.br'&&allowed(env)){
+          try{ticket=await issueTicket(path,env)}catch{}
+        }
+      }
+      const html=landingHtml.replace('__OFT_MEASUREMENT_TICKET__',JSON.stringify(ticket));
+      return new Response(html, { headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': ticket===null?'public, max-age=300':'private, no-store', 'x-content-type-options': 'nosniff', 'x-frame-options': 'DENY' } });
+    }
+    if(path==='/api/measurement/pageview' && request.method==='POST'){
+      if(!allowed(env)||url.origin!=='https://ofertismo.com.br'||request.headers.get('origin')!==url.origin)return reply({ok:false},403);
+      const length=Number(request.headers.get('content-length')||0);
+      if(length>256||!request.body)return reply({ok:false},400);
+      const reader=request.body.getReader();let size=0;const decoder=new TextDecoder();let ticket='';
+      try{
+        while(true){const {value,done}=await reader.read();if(done)break;size+=value.byteLength;if(size>256){await reader.cancel();return reply({ok:false},400)}ticket+=decoder.decode(value,{stream:true});}
+        ticket+=decoder.decode();
+      }catch{return reply({ok:false},400)}
+      ctx.waitUntil(dispatchMeasurement(request,env,ticket,'PageView').catch(()=>{}));
+      return new Response(null,{status:204,headers:{'cache-control':'no-store'}});
     }
     if (path === '/privacidade' && request.method === 'GET') {
       return new Response(privacyHtml, { headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'public, max-age=300', 'x-content-type-options': 'nosniff', 'x-frame-options': 'DENY' } });
@@ -144,7 +178,7 @@ export default {
         return new Response('Visualização automatizada: acesso não contabilizado.', { status: 200, headers: { 'cache-control': 'no-store' } });
       }
       const result = await stub.fetch('https://router.local/internal/redirect', {
-        method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ source })
+        method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ source, campaign: url.searchParams.get('utm_campaign'), creative: url.searchParams.get('utm_content') })
       });
       if (!result.ok) {
         const msg = (await result.json()).error;
@@ -152,7 +186,9 @@ export default {
         return new Response(body, { status: 503, headers: { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store' } });
       }
       const { url: target } = await result.json();
-      return Response.redirect(target, 302);
+      const ticket=url.searchParams.get('measurement_ticket');
+      if(ticket&&allowed(env))ctx.waitUntil(dispatchMeasurement(request,env,ticket,'Lead').catch(()=>{}));
+      return new Response(null,{status:302,headers:{location:target,'cache-control':'no-store','referrer-policy':'no-referrer'}});
     }
     return reply({ error: 'Rota não encontrada. Use /entrar/team, /entrar/meta ou /admin.' }, 404);
   }
