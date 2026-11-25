@@ -49,7 +49,7 @@ export function validateConfig(input) {
   return { limit, groups };
 }
 
-export function nextClick(config, metrics, source, day) {
+export function nextClick(config, metrics, source, day, campaign, creative) {
   const groups = config.groups;
   const limit = config.limit;
   if (!groups.length) return { target: null, metrics, reason: 'no_groups' };
@@ -68,6 +68,14 @@ export function nextClick(config, metrics, source, day) {
   next.bySource[source] = (next.bySource[source] || 0) + 1;
   const dailyKey = `${day}|${source}`;
   next.byDaySource[dailyKey] = (next.byDaySource[dailyKey] || 0) + 1;
+  if (source === 'meta' && campaign === 'oft_t03' && ['imagem_01', 'video_01'].includes(creative)) {
+    const key = `${campaign}|${creative}`;
+    next.byCampaignCreative ||= {};
+    next.byDayCampaignCreative ||= {};
+    next.byCampaignCreative[key] = (next.byCampaignCreative[key] || 0) + 1;
+    const dayKey = `${day}|${key}`;
+    next.byDayCampaignCreative[dayKey] = (next.byDayCampaignCreative[dayKey] || 0) + 1;
+  }
   next.total++;
   return { target: group, metrics: next, reason: 'ok' };
 }
