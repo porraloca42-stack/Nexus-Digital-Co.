@@ -10,8 +10,8 @@ function setup(){
   const fake=async(url,init)=>{calls.push({url,body:JSON.parse(init.body),auth:init.headers.authorization});return new Response(JSON.stringify({events_received:1,secret:'do-not-return'}),{status:200})};
   return {env,fake,names,calls};
 }
-function req({url=host+CAPI_PREVIEW_PATH,authorization='Bearer '+auth,method='POST',data={consent:true,event_name:'Lead',test_id:id}}={}){
- return new Request(url,{method,headers:{authorization,'content-type':'application/json','user-agent':'Ofertismo test runner'},...(method==='POST'?{body:JSON.stringify(data)}:{})});
+function req({url=host+CAPI_PREVIEW_PATH,authorization='Bearer '+auth,method='POST',ip='192.0.2.1',data={consent:true,event_name:'OfertismoCapiDiagnostic',test_id:id}}={}){
+ return new Request(url,{method,headers:{authorization,'content-type':'application/json','user-agent':'Ofertismo test runner',...(ip?{'cf-connecting-ip':ip}:{})},...(method==='POST'?{body:JSON.stringify(data)}:{})});
 }
 test('preview harness fails closed on production, missing test code, and no auth',async()=>{
  const {env,fake,calls}=setup();
@@ -23,7 +23,7 @@ test('preview harness fails closed on production, missing test code, and no auth
 });
 test('refuses missing consent, nonallowed event, and duplicate',async()=>{
  const {env,fake,calls}=setup();
- assert.equal((await handleCapiPreviewTest(req({data:{consent:false,event_name:'Lead',test_id:id}}),env,fake)).status,400);
+ assert.equal((await handleCapiPreviewTest(req({data:{consent:false,event_name:'OfertismoCapiDiagnostic',test_id:id}}),env,fake)).status,400);
  assert.equal((await handleCapiPreviewTest(req({data:{consent:true,event_name:'Purchase',test_id:id}}),env,fake)).status,400);
  env.ROUTER_STATE.get=()=>({fetch:async()=>new Response('{}',{status:409})});
  assert.equal((await handleCapiPreviewTest(req(),env,fake)).status,409);
@@ -34,13 +34,13 @@ test('only new dataset, explicit test code, matching ID, isolated claim, minimal
  const response=await handleCapiPreviewTest(req(),env,fake);
  assert.equal(response.status,200);
  const result=await response.json();
- assert.deepEqual(result,{ok:true,test:true,dataset:'29104010142601422',event_id:id+'_Lead',events_received:1,graph_status:200});
- assert.deepEqual(names,['capi-preview:'+id]);
+ assert.deepEqual(result,{ok:true,test:true,dataset:'29104010142601422',event_id:id+'_OfertismoCapiDiagnostic',events_received:1,graph_status:200});
+ assert.deepEqual(names,['capi-preview-diagnostic:'+id]);
  assert.equal(calls.length,1);
  assert.equal(calls[0].url,'https://graph.facebook.com/v25.0/29104010142601422/events');
  assert.equal(calls[0].body.test_event_code,'TEST123');
- assert.equal(calls[0].body.data[0].event_id,id+'_Lead');
- assert.deepEqual(calls[0].body.data[0].user_data,{client_user_agent:'Ofertismo test runner'});
+ assert.equal(calls[0].body.data[0].event_id,id+'_OfertismoCapiDiagnostic');
+ assert.deepEqual(calls[0].body.data[0].user_data,{client_user_agent:'Ofertismo test runner',client_ip_address:'192.0.2.1'});
  assert.equal(calls[0].body.data[0].event_source_url,host+CAPI_PREVIEW_PATH);
  assert.equal(calls[0].auth,'Bearer '+token);
 });
@@ -53,4 +53,11 @@ test('transport errors redact Graph content',async()=>{
  assert.equal(result.graph_error_code,100);
  assert.equal(result.graph_error_subcode,2804005);
  assert.ok(!JSON.stringify(result).includes('private detail'));
+});
+
+test('diagnostic cannot emit standard conversion events or run without trusted IP',async()=>{
+ const {env,fake,calls}=setup();
+ for(const event_name of ['Lead','PageView','Purchase'])assert.equal((await handleCapiPreviewTest(req({data:{consent:true,event_name,test_id:id}}),env,fake)).status,400);
+ assert.equal((await handleCapiPreviewTest(req({ip:''}),env,fake)).status,400);
+ assert.equal(calls.length,0);
 });

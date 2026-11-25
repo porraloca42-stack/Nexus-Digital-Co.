@@ -2,6 +2,7 @@
 export const CAPI_PREVIEW_PATH='/__capi-test/transport';
 const HOST='ofertismo-capi-foundation-20261125-ofertismo-link-router.porraloca42.workers.dev';
 const DATASET='29104010142601422';
+const DIAGNOSTIC='OfertismoCapiDiagnostic';
 const GRAPH='https://graph.facebook.com/v25.0/'+DATASET+'/events';
 const json=(body,status)=>new Response(JSON.stringify(body),{status,headers:{'content-type':'application/json; charset=utf-8','cache-control':'no-store','x-robots-tag':'noindex, nofollow'}});
 const secret=(s)=>typeof s==='string'&&s.length>=32;
@@ -35,22 +36,25 @@ export async function handleCapiPreviewTest(request,env,fetchImpl=fetch){
   if(!equal(request.headers.get('authorization')||'','Bearer '+env.META_CAPI_PREVIEW_AUTH))return json({ok:false},401);
   if(!/^application\/json(?:;|$)/i.test(request.headers.get('content-type')||''))return json({ok:false},415);
   const data=await readLimited(request);
-  if(!data||data.consent!==true||!['PageView','Lead'].includes(data.event_name)||
+  if(!data||data.consent!==true||data.event_name!==DIAGNOSTIC||
     !/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/.test(data.test_id||''))
     return json({ok:false,reason:'invalid_test'},400);
   const ua=request.headers.get('user-agent');
   if(!ua||!ua.trim())return json({ok:false,reason:'missing_user_agent'},400);
-  const id=data.test_id+'_'+data.event_name;
+  const ip=request.headers.get('cf-connecting-ip')||'';
+  // Trusted Cloudflare ingress only; never accept a fabricated IP from the payload.
+  if(!/^[0-9a-fA-F:.]{3,45}$/.test(ip))return json({ok:false,reason:'missing_client_ip'},400);
+  const id=data.test_id+'_'+DIAGNOSTIC;
   // Dedicated preview object, never the rotation object's ID.
   try{
-    const stub=env.ROUTER_STATE.get(env.ROUTER_STATE.idFromName('capi-preview:'+data.test_id));
-    const claim=await stub.fetch('https://router.local/internal/measurement-claim',{method:'POST',body:JSON.stringify({name:data.event_name})});
+    const stub=env.ROUTER_STATE.get(env.ROUTER_STATE.idFromName('capi-preview-diagnostic:'+data.test_id));
+    const claim=await stub.fetch('https://router.local/internal/measurement-claim',{method:'POST',body:JSON.stringify({name:'PageView'})});
     if(!claim.ok)return json({ok:false,reason:'duplicate_or_unavailable'},409);
   }catch{return json({ok:false,reason:'claim_failed'},503);}
   const body={test_event_code:env.META_CAPI_PREVIEW_TEST_EVENT_CODE,data:[{
     event_name:data.event_name,event_id:id,event_time:Math.floor(Date.now()/1000),
     action_source:'website',event_source_url:url.origin+CAPI_PREVIEW_PATH,
-    user_data:{client_user_agent:ua.slice(0,1024)}
+    user_data:{client_user_agent:ua.slice(0,1024),client_ip_address:ip}
   }]};
   try{
     const response=await fetchImpl(GRAPH,{method:'POST',headers:{'content-type':'application/json','authorization':'Bearer '+env.META_CAPI_PREVIEW_TOKEN},body:JSON.stringify(body),signal:AbortSignal.timeout(4000)});
