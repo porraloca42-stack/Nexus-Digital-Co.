@@ -1,3 +1,4 @@
+import { handleCapiPreviewTest, CAPI_PREVIEW_PATH } from './capi-preview-test.mjs';
 import { DurableObject } from 'cloudflare:workers';
 import { cleanSource, dateInSaoPaulo, nextClick, validateConfig, retainMetricsForGroups } from './rotation.mjs';
 import { landingHtml, privacyHtml } from './landing-v3.mjs';
@@ -116,6 +117,7 @@ export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
     const path = url.pathname;
+    if(path===CAPI_PREVIEW_PATH) return handleCapiPreviewTest(request,env);
     const preview=url.hostname.endsWith('-ofertismo-link-router.porraloca42.workers.dev');
     if(preview&&(/^\/(entrar|go)(\/|$)/.test(path)||path==='/api/measurement/pageview')){
       return reply({ok:true,preview:true,route:path,tracking:false,groupCounters:false,utm_campaign:url.searchParams.get('utm_campaign'),utm_content:url.searchParams.get('utm_content'),eventID:url.searchParams.has('measurement_ticket')?url.searchParams.get('measurement_ticket').split('.')[0]+'_Lead':null});
