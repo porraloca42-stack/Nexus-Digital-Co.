@@ -18,7 +18,7 @@ export async function verifyTicket(ticket,env,now=Math.floor(Date.now()/1000)){
  if(Number(ts)>now+5||now-Number(ts)>TTL)return null;
  const body=[id,ts,path].join('.');
  const valid=await crypto.subtle.verify('HMAC',await key(env),Uint8Array.from(sig.match(/../g),s=>parseInt(s,16)),enc.encode('ofertismo:measurement:v1:'+body));
- return valid?{id,sourceUrl:ORIGIN+(path==='home'?'/':'/inicio')}:null;
+ return valid?{id,issuedAt:Number(ts),sourceUrl:ORIGIN+(path==='home'?'/':'/inicio')}:null;
 }
 export async function dispatchMeasurement(request,env,ticket,name){
  if(new URL(request.url).origin!==ORIGIN||cookie(request,'oft_measure')!=='yes')return {sent:false,reason:'no_consent_or_origin'};
@@ -35,5 +35,13 @@ export async function dispatchMeasurement(request,env,ticket,name){
  const stub=env.ROUTER_STATE.get(env.ROUTER_STATE.idFromName('measurement:'+page.id));
  const claim=await stub.fetch('https://router.local/internal/measurement-claim',{method:'POST',body:JSON.stringify({name})});
  if(!claim.ok)return {sent:false,reason:'duplicate_or_unavailable'};
- return sendCapi({consent:true,name,eventId:page.id+'_'+name,eventTime:Math.floor(Date.now()/1000),sourceUrl:page.sourceUrl,userAgent,clientIp:request.headers.get('cf-connecting-ip')||'',fbp:cookie(request,'_fbp'),fbc:cookie(request,'_fbc')},env);
+ let fbc=cookie(request,'_fbc');
+ if(!fbc){
+  try{
+   const ref=new URL(request.headers.get('referer')||'');
+   const click=ref.searchParams.get('fbclid')||'';
+   if(ref.origin===ORIGIN&&ref.origin+ref.pathname===page.sourceUrl&&/^[A-Za-z0-9_-]{1,512}$/.test(click))fbc='fb.1.'+(page.issuedAt*1000)+'.'+click;
+  }catch{}
+ }
+ return sendCapi({consent:true,name,eventId:page.id+'_'+name,eventTime:Math.floor(Date.now()/1000),sourceUrl:page.sourceUrl,userAgent,clientIp:request.headers.get('cf-connecting-ip')||'',fbp:cookie(request,'_fbp'),fbc},env);
 }
