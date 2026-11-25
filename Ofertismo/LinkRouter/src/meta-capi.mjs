@@ -1,6 +1,6 @@
 // Base isolada. Não importar no Worker de produção antes de validar consentimento,
  // evento compartilhado com o Pixel, teste Meta e credencial Secret.
-const PIXEL_ID = '2468079523719290';
+const PIXEL_ID = '29104010142601422';
 const ENDPOINT = 'https://graph.facebook.com/v25.0/' + PIXEL_ID + '/events';
 const EVENTS = new Set(['PageView','Lead']);
 export function buildEvent(input) {
