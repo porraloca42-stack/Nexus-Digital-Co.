@@ -45,12 +45,12 @@ export class LinkRouterState extends DurableObject {
       return reply({ ok: true });
     }
     if (path === '/internal/redirect' && request.method === 'POST') {
-      const { source } = await request.json();
+      const { source, campaign, creative } = await request.json();
       let result;
       await this.ctx.storage.transaction(async (txn) => {
         const config = (await txn.get('config')) || DEFAULT_CONFIG;
         const metrics = (await txn.get('metrics')) || DEFAULT_METRICS;
-        result = nextClick(config, metrics, cleanSource(source), dateInSaoPaulo());
+        result = nextClick(config, metrics, cleanSource(source), dateInSaoPaulo(), campaign, creative);
         if (result.target) await txn.put('metrics', result.metrics);
       });
       if (!result.target) return reply({ error: result.reason }, 503);
@@ -144,7 +144,7 @@ export default {
         return new Response('Visualização automatizada: acesso não contabilizado.', { status: 200, headers: { 'cache-control': 'no-store' } });
       }
       const result = await stub.fetch('https://router.local/internal/redirect', {
-        method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ source })
+        method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ source, campaign: url.searchParams.get('utm_campaign'), creative: url.searchParams.get('utm_content') })
       });
       if (!result.ok) {
         const msg = (await result.json()).error;
