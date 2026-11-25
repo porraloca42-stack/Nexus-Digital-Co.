@@ -29,3 +29,49 @@ test('ticket inválido ou evento repetido não chama Meta',async()=>{
  assert.equal((await dispatchMeasurement(r,e,t,'PageView')).reason,'duplicate_or_unavailable');
  assert.equal((await dispatchMeasurement(r,e,t+'x','PageView')).reason,'ticket');
 });
+
+test('fluxo integrado: IDs pareados, consentimento, claim separado e dados reais do request',async()=>{
+ const t=await issueTicket('/',env);
+ const page=await verifyTicket(t,env);
+ const claims=new Set(),calls=[];
+ const e={...env,META_CAPI_TEST_EVENT_CODE:'TEST123',ROUTER_STATE:{
+  idFromName:s=>s,get:key=>({fetch:async(url,init)=>{
+   assert.equal(key,'measurement:'+page.id);
+   const k=key+':'+JSON.parse(init.body).name;
+   if(claims.has(k))return new Response(null,{status:409});
+   claims.add(k);return new Response('{}',{status:200});
+  }})
+ }};
+ const fake=async(url,init)=>{
+  assert.equal(url,'https://graph.facebook.com/v25.0/29104010142601422/events');
+  calls.push(JSON.parse(init.body));return new Response('{"events_received":1}',{status:200});
+ };
+ const headers={origin:'https://ofertismo.com.br',referer:'https://ofertismo.com.br/?fbclid=TEST_CLICK_VALUE&utm_content=video_01',cookie:'oft_measure=yes; _fbp=fb.1.1795620000000.123456','user-agent':'Mozilla/5.0','cf-connecting-ip':'192.0.2.1'};
+ const pv=new Request('https://ofertismo.com.br/api/measurement/pageview',{method:'POST',headers});
+ const lead=new Request('https://ofertismo.com.br/entrar/meta',{headers});
+ assert.equal((await dispatchMeasurement(pv,e,t,'PageView',fake)).sent,true);
+ assert.equal((await dispatchMeasurement(lead,e,t,'Lead',fake)).sent,true);
+ assert.equal((await dispatchMeasurement(lead,e,t,'Lead',fake)).reason,'duplicate_or_unavailable');
+ const revoked=new Request(lead.url,{headers:{...headers,cookie:'oft_measure=no'}});
+ assert.equal((await dispatchMeasurement(revoked,e,t,'Lead',fake)).reason,'no_consent_or_origin');
+ assert.equal(calls.length,2);
+ for(const [i,name] of ['PageView','Lead'].entries()){
+  const payload=calls[i],event=payload.data[0];
+  assert.equal(payload.test_event_code,'TEST123');
+  assert.equal(event.event_id,page.id+'_'+name);
+  assert.equal(event.event_name,name);
+  assert.equal(event.event_source_url,'https://ofertismo.com.br/');
+  assert.equal(event.user_data.fbp,'fb.1.1795620000000.123456');
+  assert.equal(event.user_data.fbc,'fb.1.'+(page.issuedAt*1000)+'.TEST_CLICK_VALUE');
+  assert.equal(event.user_data.client_ip_address,'192.0.2.1');
+ }
+});
+test('falha no transporte não cria segundo envio com o mesmo evento',async()=>{
+ const t=await issueTicket('/',env);let count=0,claimed=false;
+ const e={...env,ROUTER_STATE:{idFromName:s=>s,get:()=>({fetch:async()=>{if(claimed)return new Response(null,{status:409});claimed=true;return new Response('{}',{status:200})}})}};
+ const pv=new Request('https://ofertismo.com.br/api/measurement/pageview',{method:'POST',headers:{origin:'https://ofertismo.com.br',cookie:'oft_measure=yes','user-agent':'Mozilla/5.0'}});
+ const fake=async()=>{count++;throw Error('simulated network failure')};
+ assert.equal((await dispatchMeasurement(pv,e,t,'PageView',fake)).reason,'transport_error');
+ assert.equal((await dispatchMeasurement(pv,e,t,'PageView',fake)).reason,'duplicate_or_unavailable');
+ assert.equal(count,1);
+});

@@ -343,6 +343,9 @@ details p{margin:0;padding:0 21px 22px;color:#d5cbd0;line-height:1.6;font-size:1
  if(!ticket||(!preview&&location.origin!=='https://ofertismo.com.br'))return;
  var pageId=ticket.split('.')[0], initialized=false, leadSent=false;
  function preference(){return document.cookie.split(';').map(function(s){return s.trim()}).find(function(s){return s.indexOf('oft_measure=')===0})||''}
+ function clearMeasurementTickets(){
+  document.querySelectorAll('.join-cta').forEach(function(a){var target=new URL(a.href,location.origin);if(target.searchParams.has('measurement_ticket')){target.searchParams.delete('measurement_ticket');a.href=target.pathname+target.search}});
+ }
  function initialize(){
   if(preference()!=='oft_measure=yes')return;
   if(initialized){if(window.fbq)fbq('consent','grant');return;}
@@ -362,7 +365,7 @@ details p{margin:0;padding:0 21px 22px;color:#d5cbd0;line-height:1.6;font-size:1
   var choice=b.getAttribute('data-choice');
   document.cookie='oft_measure='+choice+'; Path=/; Max-Age=15552000; SameSite=Lax; Secure';
   preferences.hidden=true;
-  if(choice==='yes')initialize();else if(window.fbq)fbq('consent','revoke');
+  if(choice==='yes')initialize();else{clearMeasurementTickets();if(window.fbq)fbq('consent','revoke');}
  }});
  var footer=document.querySelector('footer');
  footer.before(preferences);preferences.hidden=!!preference();
@@ -371,7 +374,7 @@ details p{margin:0;padding:0 21px 22px;color:#d5cbd0;line-height:1.6;font-size:1
  manage.onclick=function(){preferences.hidden=false;preferences.scrollIntoView({block:'nearest'})};footer.appendChild(manage);
  initialize();
  document.querySelectorAll('.join-cta').forEach(function(a){a.addEventListener('click',function(){
-  if(preference()!=='oft_measure=yes'||!initialized)return;
+  if(preference()!=='oft_measure=yes'||!initialized){clearMeasurementTickets();return;}
   if(!leadSent){leadSent=true;if(window.fbq)fbq('track','Lead',{},{eventID:pageId+'_Lead'})}
   var target=new URL(a.href,location.origin);target.searchParams.set('measurement_ticket',ticket);a.href=target.pathname+target.search;
  })});
