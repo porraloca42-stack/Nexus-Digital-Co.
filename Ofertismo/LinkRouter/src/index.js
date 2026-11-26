@@ -143,6 +143,7 @@ el('reset').onclick=async()=>{
 
 function pageDimensions(request){
   try{const ref=new URL(request.headers.get('referer')||'');if(ref.origin==='https://ofertismo.com.br')return trafficFromUrl(ref);}catch{}
+  if(request.headers.get('origin')==='https://ofertismo.com.br')return traffic(request.headers.get('x-oft-source'),request.headers.get('x-oft-campaign'),request.headers.get('x-oft-creative'));
   return traffic('outro','','');
 }
 async function reportMeasurement(request,env,ticket,name,dimensions){
