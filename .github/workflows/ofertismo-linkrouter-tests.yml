@@ -1,0 +1,21 @@
+name: Ofertismo LinkRouter tests
+on:
+  pull_request:
+    paths:
+      - 'Ofertismo/LinkRouter/**'
+      - '.github/workflows/ofertismo-linkrouter-tests.yml'
+permissions:
+  contents: read
+jobs:
+  unit:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: Ofertismo/LinkRouter
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+      - run: node --check src/index.js
+      - run: npm test

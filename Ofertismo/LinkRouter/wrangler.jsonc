@@ -4,7 +4,19 @@
   "main": "src/index.js",
   "compatibility_date": "2026-11-22",
   "workers_dev": true,
-  "previews": {},
+  "previews": {
+    "durable_objects": {
+      "bindings": [
+        {
+          "name": "ROUTER_STATE",
+          "class_name": "LinkRouterState"
+        }
+      ]
+    },
+    "vars": {
+      "META_CAPI_ENABLED": "false"
+    }
+  },
   "durable_objects": {
     "bindings": [
       {
@@ -23,5 +35,19 @@
   ],
   "assets": {
     "directory": "./assets"
+  },
+  "vars": {
+    "META_CAPI_ENABLED": "true"
+  },
+  "observability": {
+    "enabled": true,
+    "logs": {
+      "enabled": true,
+      "invocation_logs": false,
+      "head_sampling_rate": 1
+    },
+    "traces": {
+      "enabled": false
+    }
   }
 }

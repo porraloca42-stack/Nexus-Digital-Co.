@@ -325,14 +325,53 @@ details p{margin:0;padding:0 21px 22px;color:#d5cbd0;line-height:1.6;font-size:1
  else if(['team','teamlanders','team-landers'].includes(origin))source='team';
  else if(['telegram','tg'].includes(origin))source='telegram';
  else if(['social','tiktok','youtube'].includes(origin))source='social';
- document.querySelectorAll('.join-cta').forEach(function(a){a.href='/entrar/'+source});
+ var creative=(source==='meta'&&p.get('utm_campaign')==='oft_t03'&&['imagem_01','video_01'].includes(p.get('utm_content')))?p.get('utm_content'):'';
+ document.querySelectorAll('.join-cta').forEach(function(a){a.href='/entrar/'+source+(creative?'?utm_campaign=oft_t03&utm_content='+creative:'')});
  var sticky=document.getElementById('sticky'),heroCTA=document.getElementById('hero-cta'),artCTA=document.getElementById('v3-art-cta');
  function syncSticky(){var current=window.matchMedia('(max-width:640px)').matches?artCTA:heroCTA;sticky.classList.toggle('active',current.getBoundingClientRect().bottom<0)}
  window.addEventListener('scroll',syncSticky,{passive:true});window.addEventListener('resize',syncSticky);syncSticky();
  if(location.hostname==='localhost')return;
- !function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,document,'script','https://connect.facebook.net/en_US/fbevents.js');
- fbq('init','2468079523719290');fbq('track','PageView');
- document.querySelectorAll('.join-cta').forEach(function(a){a.addEventListener('click',function(){if(window.fbq)fbq('track','Lead')})});
+ var ticket=__OFT_MEASUREMENT_TICKET__;
+ var preview=typeof ticket==='string'&&ticket.endsWith('.preview')&&location.hostname.endsWith('-ofertismo-link-router.porraloca42.workers.dev');
+ if(!ticket||(!preview&&location.origin!=='https://ofertismo.com.br'))return;
+ var pageId=ticket.split('.')[0], initialized=false, leadSent=false;
+ function preference(){return document.cookie.split(';').map(function(s){return s.trim()}).find(function(s){return s.indexOf('oft_measure=')===0})||''}
+ function clearMeasurementTickets(){
+  document.querySelectorAll('.join-cta').forEach(function(a){var target=new URL(a.href,location.origin);if(target.searchParams.has('measurement_ticket')){target.searchParams.delete('measurement_ticket');a.href=target.pathname+target.search}});
+ }
+ function initialize(){
+  if(preference()!=='oft_measure=yes')return;
+  if(initialized){if(window.fbq)fbq('consent','grant');return;}
+  initialized=true;
+  if(preview){window.fbq=function(){(window.__oftPreviewEvents=window.__oftPreviewEvents||[]).push(Array.from(arguments))};}
+  !function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,document,'script','https://connect.facebook.net/en_US/fbevents.js');
+  fbq('set','autoConfig',false,'29104010142601422');
+  fbq('init','29104010142601422');fbq('consent','grant');
+  fbq('track','PageView',{},{eventID:pageId+'_PageView'});
+  fetch('/api/measurement/pageview',{method:'POST',body:ticket,keepalive:true,credentials:'same-origin'}).catch(function(){});
+ }
+ var preferences=document.createElement('section');
+ preferences.setAttribute('aria-label','Preferências de privacidade');
+ preferences.style.cssText='padding:12px 16px;background:#18181b;color:#fff;font:13px/1.5 system-ui;text-align:center';
+ preferences.innerHTML='<p style="margin:0 0 8px">Podemos usar o Meta Pixel e a API de Conversões para medir anúncios? Entrar no grupo não depende dessa escolha. <a style="color:#ffd53f" href="/privacidade">Privacidade</a></p><button type="button" data-choice="yes">Aceitar</button> <button type="button" data-choice="no">Recusar</button>';
+ preferences.querySelectorAll('button').forEach(function(b){b.style.cssText='padding:7px 15px;border:1px solid #777;border-radius:6px;background:#25252b;color:white;font:inherit;cursor:pointer';b.onclick=function(){
+  var choice=b.getAttribute('data-choice');
+  document.cookie='oft_measure='+choice+'; Path=/; Max-Age=15552000; SameSite=Lax; Secure';
+  preferences.hidden=true;
+  if(choice==='yes')initialize();else{clearMeasurementTickets();if(window.fbq)fbq('consent','revoke');}
+ }});
+ var footer=document.querySelector('footer');
+ footer.before(preferences);preferences.hidden=!!preference();
+ // Não sobrepor o CTA nem impedir o acesso; opção no fluxo normal da página.
+ var manage=document.createElement('button');manage.type='button';manage.textContent='Preferências de cookies';manage.style.cssText='background:none;border:0;text-decoration:underline;color:inherit;cursor:pointer;font:inherit';
+ manage.onclick=function(){preferences.hidden=false;preferences.scrollIntoView({block:'nearest'})};footer.appendChild(manage);
+ initialize();
+ document.querySelectorAll('.join-cta').forEach(function(a){a.addEventListener('click',function(){
+  if(preference()!=='oft_measure=yes'||!initialized){clearMeasurementTickets();return;}
+  if(!leadSent){leadSent=true;if(window.fbq)fbq('track','Lead',{},{eventID:pageId+'_Lead'})}
+  var target=new URL(a.href,location.origin);target.searchParams.set('measurement_ticket',ticket);a.href=target.pathname+target.search;
+ })});
+
 })();
 </script>
 </body></html>`;
