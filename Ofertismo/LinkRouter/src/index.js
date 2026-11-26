@@ -3,7 +3,7 @@ import { DurableObject } from 'cloudflare:workers';
 import { cleanSource, dateInSaoPaulo, nextClick, validateConfig, retainMetricsForGroups } from './rotation.mjs';
 import { landingHtml, privacyHtml } from './landing-v3.mjs';
 import { renderInviteTest } from './invite-test.mjs';
-import { allowed, issueTicket, dispatchMeasurement } from './measurement.mjs';
+import { allowed, issueTicket, dispatchMeasurement, observeMeasurement } from './measurement.mjs';
 
 const DEFAULT_CONFIG = { limit: 1000, groups: [] };
 const DEFAULT_METRICS = { total: 0, groupIndex: 0, byGroup: {}, bySource: {}, byDaySource: {} };
@@ -144,7 +144,7 @@ export default {
         while(true){const {value,done}=await reader.read();if(done)break;size+=value.byteLength;if(size>256){await reader.cancel();return reply({ok:false},400)}ticket+=decoder.decode(value,{stream:true});}
         ticket+=decoder.decode();
       }catch{return reply({ok:false},400)}
-      ctx.waitUntil(dispatchMeasurement(request,env,ticket,'PageView').catch(()=>{}));
+      ctx.waitUntil(observeMeasurement(()=>dispatchMeasurement(request,env,ticket,'PageView'),'PageView'));
       return new Response(null,{status:204,headers:{'cache-control':'no-store'}});
     }
     if (path === '/privacidade' && request.method === 'GET') {
@@ -194,7 +194,7 @@ export default {
       }
       const { url: target } = await result.json();
       const ticket=url.searchParams.get('measurement_ticket');
-      if(ticket&&allowed(env))ctx.waitUntil(dispatchMeasurement(request,env,ticket,'Lead').catch(()=>{}));
+      if(ticket&&allowed(env))ctx.waitUntil(observeMeasurement(()=>dispatchMeasurement(request,env,ticket,'Lead'),'Lead'));
       return new Response(null,{status:302,headers:{location:target,'cache-control':'no-store','referrer-policy':'no-referrer'}});
     }
     return reply({ error: 'Rota não encontrada. Use /entrar/team, /entrar/meta ou /admin.' }, 404);

@@ -29,6 +29,12 @@ export async function sendCapi(input, env, fetchImpl=fetch) {
   try {
     const r=await fetchImpl(ENDPOINT,{method:'POST',headers:{'content-type':'application/json','authorization':'Bearer '+env.META_CAPI_TOKEN},body:JSON.stringify(body),signal:AbortSignal.timeout(4000)});
     const result=await r.json();
-    return {sent:r.ok && result.events_received===1,status:r.status};
+    const sent=r.ok && result.events_received===1;
+    const diagnostics={};
+    if(!sent&&result.error){
+      if(Number.isSafeInteger(result.error.code))diagnostics.graph_error_code=result.error.code;
+      if(Number.isSafeInteger(result.error.error_subcode))diagnostics.graph_error_subcode=result.error.error_subcode;
+    }
+    return {sent,status:r.status,...(!sent?{reason:'graph_rejected'}:{}),...diagnostics};
   } catch {return {sent:false,reason:'transport_error'};}
 }

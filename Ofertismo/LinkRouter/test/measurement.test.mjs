@@ -1,6 +1,6 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
-import {issueTicket,verifyTicket,dispatchMeasurement} from '../src/measurement.mjs';
+import {issueTicket,verifyTicket,dispatchMeasurement,observeMeasurement} from '../src/measurement.mjs';
 const env={META_CAPI_ENABLED:'true',META_CAPI_TOKEN:'fake',ADMIN_TOKEN:'mock-secret-for-unit-tests-only'};
 test('ticket assinado, validade, origem e proteção contra alteração',async()=>{
  const t=await issueTicket('/',env,1795620000);
@@ -74,4 +74,14 @@ test('falha no transporte não cria segundo envio com o mesmo evento',async()=>{
  assert.equal((await dispatchMeasurement(pv,e,t,'PageView',fake)).reason,'transport_error');
  assert.equal((await dispatchMeasurement(pv,e,t,'PageView',fake)).reason,'duplicate_or_unavailable');
  assert.equal(count,1);
+});
+
+test('observability is redacted and omits unconsented requests',async()=>{
+ const logs=[],logger={info:s=>logs.push(JSON.parse(s)),warn:s=>logs.push(JSON.parse(s))};
+ await observeMeasurement(async()=>({sent:false,reason:'no_consent_or_origin',private:'do not log'}),'Lead',logger);
+ assert.equal(logs.length,0);
+ await observeMeasurement(async()=>({sent:false,status:400,reason:'graph_rejected',graph_error_code:100,private:'do not log'}),'Lead',logger);
+ await observeMeasurement(async()=>({sent:true,status:200,ip:'do not log'}),'PageView',logger);
+ await observeMeasurement(async()=>{throw Error('private exception')},'Lead',logger);
+ assert.deepEqual(logs,[{component:'oft_capi',event:'Lead',outcome:'not_sent',reason:'graph_rejected',http_status:400,graph_error_code:100},{component:'oft_capi',event:'PageView',outcome:'accepted',http_status:200},{component:'oft_capi',event:'Lead',outcome:'not_sent',reason:'internal_error'}]);
 });

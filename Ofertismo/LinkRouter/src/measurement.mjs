@@ -45,3 +45,20 @@ export async function dispatchMeasurement(request,env,ticket,name,fetchImpl=fetc
  }
  return sendCapi({consent:true,name,eventId:page.id+'_'+name,eventTime:Math.floor(Date.now()/1000),sourceUrl:page.sourceUrl,userAgent,clientIp:request.headers.get('cf-connecting-ip')||'',fbp:cookie(request,'_fbp'),fbc},env,fetchImpl);
 }
+
+// Minimal delivery telemetry: no event IDs, URLs, cookies, IP, UA, token, or raw errors.
+export async function observeMeasurement(operation,name,logger=console){
+ if(!['PageView','Lead'].includes(name))return;
+ let result;
+ try{result=await operation();}catch{result={sent:false,reason:'internal_error'}}
+ const reasons=['disabled','invalid_or_no_consent','no_consent_or_origin','origin','referer','ticket','agent','duplicate_or_unavailable','transport_error','graph_rejected','internal_error'];
+ const record={component:'oft_capi',event:name,outcome:result?.sent===true?'accepted':'not_sent'};
+ if(reasons.includes(result?.reason))record.reason=result.reason;
+ if(Number.isInteger(result?.status)&&result.status>=100&&result.status<=599)record.http_status=result.status;
+ for(const field of ['graph_error_code','graph_error_subcode'])if(Number.isSafeInteger(result?.[field]))record[field]=result[field];
+ // Avoid recording unconsented or ineligible visitor activity; only actual delivery failures/successes.
+ if(record.outcome==='accepted'||['transport_error','graph_rejected','internal_error','duplicate_or_unavailable'].includes(record.reason)){
+  try{logger[record.outcome==='accepted'?'info':'warn'](JSON.stringify(record))}catch{}
+ }
+ return result;
+}

@@ -28,3 +28,8 @@ test('token no header, evento de teste e mesmo ID',async()=>{
  });
  assert.equal(r.sent,true);
 });
+
+test('Graph rejection returns only numeric diagnostics, not response message',async()=>{
+ const r=await sendCapi(input,{META_CAPI_ENABLED:'true',META_CAPI_TOKEN:'fake'},async()=>new Response(JSON.stringify({error:{message:'private payload',code:100,error_subcode:2804005}}),{status:400}));
+ assert.deepEqual(r,{sent:false,status:400,reason:'graph_rejected',graph_error_code:100,graph_error_subcode:2804005});
+});
