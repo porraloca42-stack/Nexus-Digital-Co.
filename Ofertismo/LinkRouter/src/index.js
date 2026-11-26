@@ -90,11 +90,7 @@ export class LinkRouterState extends DurableObject {
         result=reserveRedirect(config,metrics,receipts,input);
         if(result.target&&!result.repeated)await txn.put('metrics',result.metrics);
         if(Object.keys(result.receipts).length||Object.keys(receipts).length)await txn.put('redirect-receipts-v4',result.receipts);
-        if(result.target&&!result.repeated){
-          const dimensions=traffic(input.source,input.campaign,input.creative),now=new Date();
-          await bumpDaily(txn,'redirect_ok',dimensions,now);
-          await bumpDaily(txn,'redirect_'+(['yes','no'].includes(input.consent)?input.consent:'unset'),dimensions,now);
-        }
+
       });
       if(!result.target)return reply({error:result.reason},503);
       return reply({url:result.target.url,repeated:result.repeated});
@@ -256,7 +252,8 @@ export default {
         const body = msg === 'no_groups' ? 'O grupo será disponibilizado em breve.' : 'Todos os grupos cadastrados atingiram o limite de acessos.';
         return post?reply({ok:false,error:body},503):new Response(body,{status:503,headers:{'content-type':'text/plain; charset=utf-8','cache-control':'no-store'}});
       }
-      const {url:target}=await result.json();
+      const {url:target,repeated}=await result.json();
+      if(!repeated)ctx.waitUntil(Promise.all([recordStage(env,request,'redirect_ok',dimensions),recordStage(env,request,'redirect_'+consentState(request),dimensions)]));
       const ticket=post?data.ticket:url.searchParams.get('measurement_ticket');
       let leadEventID=null;
       if(ticket&&allowed(env)&&consentState(request)==='yes'){
