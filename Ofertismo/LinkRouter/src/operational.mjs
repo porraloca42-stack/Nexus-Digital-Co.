@@ -1,11 +1,12 @@
+import {knownCreative} from './campaigns.mjs';
 // Aggregate operational counters. No visitor identifiers, URLs, cookies or IPs are persisted.
 import {dateInSaoPaulo} from './rotation.mjs';
 export const STAGES=new Set(['landing_request','consent_accept','consent_decline','redirect_ok','redirect_unavailable','redirect_yes','redirect_no','redirect_unset','capi_pageview_accepted','capi_pageview_failed','capi_lead_accepted','capi_lead_failed']);
 const SOURCES=new Set(['meta','team','telegram','social','direto','outro']);
-const CREATIVE_REGISTRY={'oft_t03':['imagem_01','video_01']};
+
 export function traffic(source,campaign,creative){
  const s=SOURCES.has(source)?source:'outro';
- return {source:s,campaign:s==='meta'&&Object.hasOwn(CREATIVE_REGISTRY,campaign)&&CREATIVE_REGISTRY[campaign].includes(creative)?campaign:'',creative:s==='meta'&&Object.hasOwn(CREATIVE_REGISTRY,campaign)&&CREATIVE_REGISTRY[campaign].includes(creative)?creative:''};
+ return {source:s,campaign:s==='meta'&&knownCreative(campaign,creative)?campaign:'',creative:s==='meta'&&knownCreative(campaign,creative)?creative:''};
 }
 export function trafficFromUrl(url){
  const p=new URL(url).searchParams,origin=(p.get('origem')||p.get('utm_source')||'').toLowerCase().trim();
