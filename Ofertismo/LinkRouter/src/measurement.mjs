@@ -30,7 +30,8 @@ export async function dispatchMeasurement(request,env,ticket,name,fetchImpl=fetc
   // Some in-app browsers omit Referer. Browser-controlled fetch metadata
   // can prove a same-origin document navigation, never a cross-site request.
   const navigation=!ref&&request.method==='GET'&&request.headers.get('sec-fetch-site')==='same-origin'&&request.headers.get('sec-fetch-mode')==='navigate'&&request.headers.get('sec-fetch-dest')==='document';
-  if(!direct&&!navigation)return {sent:false,reason:'referer'};
+  const post=request.method==='POST'&&request.headers.get('origin')===ORIGIN&&/^\/(entrar|go)(\/|$)/.test(new URL(request.url).pathname)&&(!ref||direct)&&!['cross-site','same-site'].includes(request.headers.get('sec-fetch-site'));
+  if(!direct&&!navigation&&!post)return {sent:false,reason:'referer'};
  }
  const page=await verifyTicket(ticket,env);
  if(!page||!['PageView','Lead'].includes(name))return {sent:false,reason:'ticket'};
@@ -43,7 +44,7 @@ export async function dispatchMeasurement(request,env,ticket,name,fetchImpl=fetc
  // The browser only supplies this first-party header after an explicit opt-in.
  // It is never logged or retained; use the timestamp of the actual signed landing visit.
  if(!/^fb\.1\.\d{10,16}\.[A-Za-z0-9_-]{1,512}$/.test(fbc))fbc='';
- if(!fbc&&name==='PageView'&&request.method==='POST'){
+ if(!fbc&&request.method==='POST'&&request.headers.get('origin')===ORIGIN){
   const click=request.headers.get('x-oft-fbclid')||'';
   if(/^[A-Za-z0-9_-]{1,512}$/.test(click))fbc='fb.1.'+(page.issuedAt*1000)+'.'+click;
  }
