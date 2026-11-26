@@ -368,7 +368,7 @@ details p{margin:0;padding:0 21px 22px;color:#d5cbd0;line-height:1.6;font-size:1
  var preferences=document.createElement('section');
  preferences.setAttribute('aria-label','Preferências de privacidade');
  preferences.style.cssText='padding:12px 16px;background:#18181b;color:#fff;font:13px/1.5 system-ui;text-align:center';
- preferences.innerHTML='<p style="margin:0 0 8px">Podemos usar o Meta Pixel e a API de Conversões para medir anúncios? Entrar no grupo não depende dessa escolha. <a style="color:#ffd53f" href="/privacidade">Privacidade</a></p><button type="button" data-choice="yes">Aceitar</button> <button type="button" data-choice="no">Recusar</button>';
+ preferences.innerHTML='<p style="margin:0 0 8px">Usamos cookies e tecnologias semelhantes para medir nossos anúncios. Você pode entrar no grupo mesmo sem aceitar. <a style="color:#ffd53f" href="/privacidade">Privacidade</a></p><button type="button" data-choice="yes">Aceitar</button> <button type="button" data-choice="no">Recusar</button>';
  preferences.querySelectorAll('button').forEach(function(b){b.style.cssText='padding:7px 15px;border:1px solid #777;border-radius:6px;background:#25252b;color:white;font:inherit;cursor:pointer';b.onclick=function(){
   var choice=b.getAttribute('data-choice');
   document.cookie='oft_measure='+choice+'; Path=/; Max-Age=15552000; SameSite=Lax; Secure';
