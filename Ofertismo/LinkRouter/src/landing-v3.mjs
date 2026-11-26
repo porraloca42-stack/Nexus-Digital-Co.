@@ -81,7 +81,7 @@ details p{margin:0;padding:0 21px 22px;color:#d5cbd0;line-height:1.6;font-size:1
 .end-cta h2 strong{color:#ffcb22}
 .end-cta .cta{max-width:720px;min-height:85px;font-size:clamp(22px,3vw,29px)}.end-cta .cta-icon{width:57px;height:57px}.end-cta .cta-icon svg{width:34px;height:34px}.end-cta .cta-divider{height:46px}
 .footer{border-top:1px solid rgba(255,81,43,.32);padding:25px 0 98px;font-size:12px;color:#b0a6ae;background:#07060b}
-.footer-inner{display:flex;justify-content:space-between;gap:20px;flex-wrap:wrap}.footer a{color:#e9c4a4}
+.footer-inner{display:flex;justify-content:center;align-items:center;gap:6px 14px;flex-wrap:wrap;text-align:center}.footer a{color:#e9c4a4}
 .sticky{display:none}
 @media(max-width:900px){.hero-scene{min-height:615px}.hero-phone{width:min(52%,410px);right:-4%;top:28px}.hero-hook{max-width:92%;font-size:clamp(17px,3vw,24px)}h1{font-size:clamp(39px,6vw,58px)}.brand-logo{width:60px;height:60px}.brand-line{height:43px}.brand{gap:12px}.brand-title{font-size:clamp(24px,4.8vw,38px)}}
 @media(max-width:640px){
@@ -287,14 +287,14 @@ details p{margin:0;padding:0 21px 22px;color:#d5cbd0;line-height:1.6;font-size:1
  </div></div></section>
 <section class="faq-zone" id="perguntas"><div class="shell"><h2 class="section-title">AINDA TEM <em>DÚVIDAS?</em></h2><div class="faq-list">
  <details><summary>Preciso pagar para entrar?</summary><p>Não! O acesso ao grupo VIP do Ofertismo é totalmente gratuito.</p></details>
- <details><summary>Que tipo de ofertas vou encontrar?</summary><p>Cupons, promoções, achados e oportunidades de diferentes tipos de produtos.</p></details>
+ <details><summary>Que tipo de ofertas vou encontrar?</summary><p>Cupons, promoções, achados e oportunidades de diferentes tipos de produtos. A imagem do grupo é um exemplo; as ofertas disponíveis variam.</p></details>
  <details><summary>Sou obrigado a comprar alguma coisa?</summary><p>Não! Você acompanha as oportunidades e aproveita apenas o que quiser.</p></details>
  <details><summary>Posso sair do grupo quando quiser?</summary><p>Sim. É possível sair a qualquer momento nas opções do próprio WhatsApp.</p></details>
 </div></div></section>
 <section class="end-cta" id="participar"><div class="shell"><h2>NÃO PERCA O PRÓXIMO ACHADO!<br><strong>ENTRE GRÁTIS NO GRUPO VIP.</strong></h2>
 <a class="cta join-cta" href="/entrar/direto"><span class="cta-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 0 0-8.7 15L2 22l5.2-1.3A10 10 0 1 0 12 2zm0 2a8 8 0 1 1-3.7 15.1l-.4-.2-2.7.7.7-2.6-.2-.4A8 8 0 0 1 12 4zm-3.4 3.5c-.5 0-.8.3-1 1-.2.6-.2 1.4.2 2.3.9 2.1 3 4.4 5.6 5.4.9.3 1.6.3 2.1.1.7-.3 1.2-1.2 1.2-1.7 0-.3-.1-.4-.4-.5l-2-.9c-.3-.1-.5-.1-.7.2l-.8 1c-.2.2-.3.3-.6.1-1.3-.7-2.3-1.7-3-3-.2-.3-.1-.4.1-.6l.7-.8c.2-.2.3-.4.2-.7l-.9-2.1c-.2-.4-.3-.5-.7-.5z"/></svg></span><span class="cta-divider" aria-hidden="true"></span><span>ENTRAR GRÁTIS<br>NO GRUPO VIP</span><span class="cta-arrow" aria-hidden="true">›</span></a></div></section>
 </main>
-<footer class="footer"><div class="shell footer-inner"><span>© Ofertismo • Ofertas, Descontos e Cupons.</span><span>Exemplos visuais não representam ofertas reais. Preços e disponibilidade devem ser confirmados na loja. <a href="/privacidade">Privacidade</a></span></div></footer>
+<footer class="footer"><div class="shell footer-inner"><span>© Ofertismo • Ofertas, Descontos e Cupons.</span></div></footer>
 <div class="sticky" id="sticky"><a class="cta join-cta" href="/entrar/direto"><span class="cta-icon" aria-hidden="true"><svg viewBox="0 0 24 24"><path d="M12 2a10 10 0 0 0-8.7 15L2 22l5.2-1.3A10 10 0 1 0 12 2zm0 2a8 8 0 1 1-3.7 15.1l-.4-.2-2.7.7.7-2.6-.2-.4A8 8 0 0 1 12 4z"/></svg></span><span class="cta-divider" aria-hidden="true"></span><span>ENTRAR GRÁTIS NO GRUPO VIP</span><span class="cta-arrow" aria-hidden="true">›</span></a></div>
 <script>
 (function(){
@@ -379,7 +379,7 @@ details p{margin:0;padding:0 21px 22px;color:#d5cbd0;line-height:1.6;font-size:1
  footer.before(preferences);preferences.hidden=!!preference();
  // Não sobrepor o CTA nem impedir o acesso; opção no fluxo normal da página.
  var manage=document.createElement('button');manage.type='button';manage.textContent='Preferências de cookies';manage.style.cssText='background:none;border:0;text-decoration:underline;color:inherit;cursor:pointer;font:inherit';
- manage.onclick=function(){preferences.hidden=false;preferences.scrollIntoView({block:'nearest'})};footer.appendChild(manage);
+ manage.onclick=function(){preferences.hidden=false;preferences.scrollIntoView({block:'nearest'})};document.querySelector('.footer-inner').appendChild(manage);
  initialize();
  document.querySelectorAll('.join-cta').forEach(function(a){a.addEventListener('click',function(){
   if(preference()!=='oft_measure=yes'||!initialized){clearMeasurementTickets();return;}
