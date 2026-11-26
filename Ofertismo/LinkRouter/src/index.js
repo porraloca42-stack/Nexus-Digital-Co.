@@ -2,8 +2,10 @@ import { DurableObject } from 'cloudflare:workers';
 import { cleanSource, dateInSaoPaulo, nextClick, validateConfig, retainMetricsForGroups } from './rotation.mjs';
 import { landingHtml, privacyHtml } from './landing-v3.mjs';
 import { renderInviteTest } from './invite-test.mjs';
-import { allowed, issueTicket, dispatchMeasurement, observeMeasurement } from './measurement.mjs';
+import { allowed, issueTicket, verifyTicket, dispatchMeasurement, observeMeasurement } from './measurement.mjs';
 import { traffic, trafficFromUrl, eligibleRequest, consentState, countStage, recordStage, readSmallJson } from './operational.mjs';
+
+import { reserveRedirect, validOperation } from './redirect.mjs';
 
 const DEFAULT_CONFIG = { limit: 1000, groups: [] };
 const DEFAULT_METRICS = { total: 0, groupIndex: 0, byGroup: {}, bySource: {}, byDaySource: {} };
@@ -60,25 +62,35 @@ export class LinkRouterState extends DurableObject {
       await this.ctx.storage.transaction(async (txn) => {
         const existing = (await txn.get('metrics')) || DEFAULT_METRICS;
         await txn.put('config', config);
+        await txn.delete('redirect-receipts-v4');
         await txn.put('metrics', retainMetricsForGroups(existing, config.groups));
       });
       return reply({ ok: true });
     }
     if (path === '/internal/reset' && request.method === 'POST') {
-      await this.ctx.storage.put('metrics', structuredClone(DEFAULT_METRICS));
+      await this.ctx.storage.transaction(async txn=>{await txn.put('metrics',structuredClone(DEFAULT_METRICS));await txn.delete('redirect-receipts-v4');});
       return reply({ ok: true });
     }
     if (path === '/internal/redirect' && request.method === 'POST') {
-      const { source, campaign, creative } = await request.json();
+      const input=await request.json();
       let result;
-      await this.ctx.storage.transaction(async (txn) => {
-        const config = (await txn.get('config')) || DEFAULT_CONFIG;
-        const metrics = (await txn.get('metrics')) || DEFAULT_METRICS;
-        result = nextClick(config, metrics, cleanSource(source), dateInSaoPaulo(), campaign, creative);
-        if (result.target) await txn.put('metrics', result.metrics);
+      await this.ctx.storage.transaction(async txn=>{
+        const config=await txn.get('config')||DEFAULT_CONFIG;
+        const metrics=await txn.get('metrics')||DEFAULT_METRICS;
+        const receipts=await txn.get('redirect-receipts-v4')||{};
+        result=reserveRedirect(config,metrics,receipts,input);
+        if(result.target&&!result.repeated)await txn.put('metrics',result.metrics);
+        if(Object.keys(result.receipts).length||Object.keys(receipts).length)await txn.put('redirect-receipts-v4',result.receipts);
+        if(result.target&&!result.repeated){
+          let funnel=await txn.get('funnel-v4')||{};
+          const dimensions=traffic(input.source,input.campaign,input.creative);
+          funnel=countStage(funnel,'redirect_ok',dimensions);
+          funnel=countStage(funnel,'redirect_'+(['yes','no'].includes(input.consent)?input.consent:'unset'),dimensions);
+          await txn.put('funnel-v4',funnel);
+        }
       });
-      if (!result.target) return reply({ error: result.reason }, 503);
-      return reply({ url: result.target.url });
+      if(!result.target)return reply({error:result.reason},503);
+      return reply({url:result.target.url,repeated:result.repeated});
     }
     return reply({ error: 'Not found' }, 404);
   }
@@ -142,6 +154,13 @@ export default {
     const path = url.pathname;
     if(path.startsWith('/__capi-test/'))return reply({ok:false},404);
     const preview=url.hostname.endsWith('-ofertismo-link-router.porraloca42.workers.dev');
+    if(preview&&path==='/preview-redirect-done')return reply({ok:true,preview:true,tracking:false,groupCounters:false});
+    if(preview&&/^\/(entrar|go)(\/|$)/.test(path)&&request.method==='POST'){
+      const data=await readSmallJson(request,2048);
+      if(!data||!validOperation(data.operation)||request.headers.get('origin')!==url.origin)return reply({ok:false},400);
+      const id=typeof data.ticket==='string'&&/^[0-9a-f-]{36}\.preview$/.test(data.ticket)&&consentState(request)==='yes'?data.ticket.split('.')[0]+'_Lead':null;
+      return reply({ok:true,preview:true,url:'/preview-redirect-done',leadEventID:id,tracking:false,groupCounters:false});
+    }
     if(preview&&(/^\/(entrar|go)(\/|$)/.test(path)||path==='/api/measurement/pageview'||path==='/api/operational/choice')){
       return reply({ok:true,preview:true,route:path,tracking:false,groupCounters:false,utm_campaign:url.searchParams.get('utm_campaign'),utm_content:url.searchParams.get('utm_content'),eventID:url.searchParams.has('measurement_ticket')?url.searchParams.get('measurement_ticket').split('.')[0]+'_Lead':null});
     }
@@ -212,25 +231,35 @@ export default {
       return stub.fetch('https://router.local/internal/reset', { method: 'POST' });
     }
     const match = path.match(/^\/(?:entrar|go)(?:\/([a-z0-9-]{1,40}))?\/?$/);
-    if (match && request.method === 'GET') {
-      const source = cleanSource(match[1] || url.searchParams.get('origem') || 'direto');
-      if (!eligibleRequest(request)) {
-        return new Response('Visualização automatizada: acesso não contabilizado.', { status: 200, headers: { 'cache-control': 'no-store' } });
-      }
+    if (match && ['GET','POST'].includes(request.method)) {
+      const source=cleanSource(match[1]||url.searchParams.get('origem')||'direto');
+      const post=request.method==='POST';
+      if(!eligibleRequest(request))return post?reply({ok:false},403):new Response('Visualização automatizada: acesso não contabilizado.',{status:200,headers:{'cache-control':'no-store'}});
+      if(post&&(url.origin!=='https://ofertismo.com.br'||request.headers.get('origin')!==url.origin))return reply({ok:false},403);
+      const data=post?await readSmallJson(request,2048):{};
+      if(post&&(!data||!validOperation(data.operation)))return reply({ok:false},400);
+      const operation=post?data.operation:url.searchParams.get('operation');
       const dimensions=traffic(source,url.searchParams.get('utm_campaign'),url.searchParams.get('utm_content'));
-      const result = await stub.fetch('https://router.local/internal/redirect', {
-        method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ source, campaign: url.searchParams.get('utm_campaign'), creative: url.searchParams.get('utm_content') })
+      const result=await stub.fetch('https://router.local/internal/redirect',{
+        method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({...dimensions,operation:validOperation(operation)?operation:null,consent:consentState(request)})
       });
       if (!result.ok) {
         ctx.waitUntil(recordStage(env,request,'redirect_unavailable',dimensions));
         const msg = (await result.json()).error;
         const body = msg === 'no_groups' ? 'O grupo será disponibilizado em breve.' : 'Todos os grupos cadastrados atingiram o limite de acessos.';
-        return new Response(body, { status: 503, headers: { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store' } });
+        return post?reply({ok:false,error:body},503):new Response(body,{status:503,headers:{'content-type':'text/plain; charset=utf-8','cache-control':'no-store'}});
       }
-      const { url: target } = await result.json();
-      const ticket=url.searchParams.get('measurement_ticket');
-      ctx.waitUntil(Promise.all([recordStage(env,request,'redirect_ok',dimensions),recordStage(env,request,'redirect_'+consentState(request),dimensions)]));
-      if(ticket&&allowed(env))ctx.waitUntil(reportMeasurement(request,env,ticket,'Lead',dimensions));
+      const {url:target}=await result.json();
+      const ticket=post?data.ticket:url.searchParams.get('measurement_ticket');
+      let leadEventID=null;
+      if(ticket&&allowed(env)&&consentState(request)==='yes'){
+        const page=await verifyTicket(ticket,env);
+        if(page){
+          ctx.waitUntil(reportMeasurement(request,env,ticket,'Lead',dimensions));
+          if(post)leadEventID=page.id+'_Lead';
+        }
+      }
+      if(post)return reply({ok:true,url:target,leadEventID});
       return new Response(null,{status:302,headers:{location:target,'cache-control':'no-store','referrer-policy':'no-referrer'}});
     }
     return reply({ error: 'Rota não encontrada. Use /entrar/team, /entrar/meta ou /admin.' }, 404);
