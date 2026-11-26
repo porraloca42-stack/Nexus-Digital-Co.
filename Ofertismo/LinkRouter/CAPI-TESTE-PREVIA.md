@@ -1,3 +1,5 @@
+# Registro histórico — diagnóstico prévia encerrado
+
 # CAPI — harness temporário de transporte (prévia, não produção)
 
 Status: desativado por padrão. Esta rota não testa o Pixel real nem a deduplicação na Meta; testa somente transporte real de um evento de diagnóstico do servidor, explicitamente marcado com test_event_code. A prévia normal continua simulada.
@@ -20,3 +22,6 @@ Fontes: https://developers.facebook.com/docs/marketing-api/conversions-api/param
 
 ## Diagnóstico pareado (somente prévia)
 GET /__capi-test/dedup, flag false por padrão. Proprietário abre a URL via Eventos de teste do dataset novo, fornece chave temporária localmente e confirma consentimento. POST exige Origin da própria prévia, chave correta e ID único; somente após HTTP200/events_received=1, carrega Pixel e chama trackCustom OfertismoCapiDiagnostic com eventID idêntico. Não armazena chave, não envia Lead, não redireciona grupos. Resposta do navegador é chamada emitida, não prova recepção/dedup; conferir os dois canais e o descarte da duplicata na Meta. Remover página, rota, importação e secrets antes de produção. Esta prova é do mecanismo de dedup, não substitui validação do fluxo real PageView/Lead.
+
+
+**Candidato à publicação:** harness removido do código executável após prova de recepção pareada; rota responde 404. Histórico acima não é instrução para reativar o diagnóstico. Métrica dedup indisponível na Meta; não comprova descarte final.

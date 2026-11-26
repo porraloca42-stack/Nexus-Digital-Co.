@@ -3,8 +3,8 @@ const ORIGIN='https://ofertismo.com.br';
 const TTL=3600;
 const enc=new TextEncoder();
 const cookie=(r,n)=> (r.headers.get('cookie')||'').split(';').map(s=>s.trim()).find(s=>s.startsWith(n+'='))?.slice(n.length+1)||'';
-export const allowed=(env)=>env.META_CAPI_ENABLED==='true'&&typeof env.META_CAPI_TOKEN==='string'&&env.META_CAPI_TOKEN.length>0&&typeof env.ADMIN_TOKEN==='string'&&env.ADMIN_TOKEN.length>=24;
-async function key(env){return crypto.subtle.importKey('raw',enc.encode(env.ADMIN_TOKEN),{name:'HMAC',hash:'SHA-256'},false,['sign','verify']);}
+export const allowed=(env)=>env.META_CAPI_ENABLED==='true'&&typeof env.META_CAPI_TOKEN==='string'&&env.META_CAPI_TOKEN.length>0&&typeof env.META_MEASUREMENT_SIGNING_KEY==='string'&&env.META_MEASUREMENT_SIGNING_KEY.length>=32&&env.META_MEASUREMENT_SIGNING_KEY!==env.ADMIN_TOKEN&&env.META_MEASUREMENT_SIGNING_KEY!==env.META_CAPI_TOKEN;
+async function key(env){return crypto.subtle.importKey('raw',enc.encode(env.META_MEASUREMENT_SIGNING_KEY),{name:'HMAC',hash:'SHA-256'},false,['sign','verify']);}
 const hex=b=>Array.from(new Uint8Array(b),v=>v.toString(16).padStart(2,'0')).join('');
 export async function issueTicket(path,env,now=Math.floor(Date.now()/1000)){
  if(!allowed(env)||!['/','/inicio'].includes(path))return '';

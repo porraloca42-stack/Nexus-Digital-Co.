@@ -1,4 +1,3 @@
-import { handleCapiPreviewTest, CAPI_PREVIEW_PATH, CAPI_DEDUP_PATH } from './capi-preview-test.mjs';
 import { DurableObject } from 'cloudflare:workers';
 import { cleanSource, dateInSaoPaulo, nextClick, validateConfig, retainMetricsForGroups } from './rotation.mjs';
 import { landingHtml, privacyHtml } from './landing-v3.mjs';
@@ -117,14 +116,14 @@ export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
     const path = url.pathname;
-    if([CAPI_PREVIEW_PATH,CAPI_DEDUP_PATH].includes(path)) return handleCapiPreviewTest(request,env);
+    if(path.startsWith('/__capi-test/'))return reply({ok:false},404);
     const preview=url.hostname.endsWith('-ofertismo-link-router.porraloca42.workers.dev');
     if(preview&&(/^\/(entrar|go)(\/|$)/.test(path)||path==='/api/measurement/pageview')){
       return reply({ok:true,preview:true,route:path,tracking:false,groupCounters:false,utm_campaign:url.searchParams.get('utm_campaign'),utm_content:url.searchParams.get('utm_content'),eventID:url.searchParams.has('measurement_ticket')?url.searchParams.get('measurement_ticket').split('.')[0]+'_Lead':null});
     }
     if (path === '/health' && request.method === 'GET') return reply({ status: 'ok', app: 'ofertismo-router' });
     if ((path === '/' || path === '/inicio') && request.method === 'GET') {
-      let ticket=null;
+      let ticket='';
       if(preview)ticket=crypto.randomUUID()+'.preview';
       else if(env.META_CAPI_ENABLED==='true'){
         ticket='';
@@ -133,7 +132,7 @@ export default {
         }
       }
       const html=landingHtml.replace('__OFT_MEASUREMENT_TICKET__',JSON.stringify(ticket));
-      return new Response(html, { headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control': ticket===null?'public, max-age=300':'private, no-store', 'x-content-type-options': 'nosniff', 'x-frame-options': 'DENY' } });
+      return new Response(html, { headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control':'private, no-store', 'x-content-type-options': 'nosniff', 'x-frame-options': 'DENY' } });
     }
     if(path==='/api/measurement/pageview' && request.method==='POST'){
       if(!allowed(env)||url.origin!=='https://ofertismo.com.br'||request.headers.get('origin')!==url.origin)return reply({ok:false},403);

@@ -1,14 +1,14 @@
 import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {issueTicket,verifyTicket,dispatchMeasurement,observeMeasurement} from '../src/measurement.mjs';
-const env={META_CAPI_ENABLED:'true',META_CAPI_TOKEN:'fake',ADMIN_TOKEN:'mock-secret-for-unit-tests-only'};
+const env={META_CAPI_ENABLED:'true',META_CAPI_TOKEN:'fake',META_MEASUREMENT_SIGNING_KEY:'mock-signing-key-for-unit-tests-only'};
 test('ticket assinado, validade, origem e proteção contra alteração',async()=>{
  const t=await issueTicket('/',env,1795620000);
  const p=await verifyTicket(t,env,1795620000);
  assert.ok(p.id);assert.equal(p.sourceUrl,'https://ofertismo.com.br/');
  assert.equal(await verifyTicket(t.replace('.home.','.inicio.'),env,1795620000),null);
  assert.equal(await verifyTicket(t,env,1795623601),null);
- assert.equal(await verifyTicket(t,{...env,ADMIN_TOKEN:'different-secret-for-unit-tests'},1795620000),null);
+ assert.equal(await verifyTicket(t,{...env,META_MEASUREMENT_SIGNING_KEY:'different-signing-key-for-unit-tests'},1795620000),null);
  assert.equal(await issueTicket('/admin',env),'');
 });
 test('sem consentimento, domínio incorreto e Lead sem referer não consultam storage',async()=>{
@@ -84,4 +84,10 @@ test('observability is redacted and omits unconsented requests',async()=>{
  await observeMeasurement(async()=>({sent:true,status:200,ip:'do not log'}),'PageView',logger);
  await observeMeasurement(async()=>{throw Error('private exception')},'Lead',logger);
  assert.deepEqual(logs,[{component:'oft_capi',event:'Lead',outcome:'not_sent',reason:'graph_rejected',http_status:400,graph_error_code:100},{component:'oft_capi',event:'PageView',outcome:'accepted',http_status:200},{component:'oft_capi',event:'Lead',outcome:'not_sent',reason:'internal_error'}]);
+});
+
+test('production requires independent signing key; no fallback to admin token',async()=>{
+ assert.equal(await issueTicket('/',{...env,META_MEASUREMENT_SIGNING_KEY:undefined,ADMIN_TOKEN:'mock-admin-key-long-enough-for-testing'}),'');
+ assert.equal(await issueTicket('/',{...env,ADMIN_TOKEN:env.META_MEASUREMENT_SIGNING_KEY}),'');
+ assert.equal(await issueTicket('/',{...env,META_CAPI_ENABLED:'false'}),'');
 });

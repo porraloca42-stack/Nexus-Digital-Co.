@@ -332,13 +332,6 @@ details p{margin:0;padding:0 21px 22px;color:#d5cbd0;line-height:1.6;font-size:1
  window.addEventListener('scroll',syncSticky,{passive:true});window.addEventListener('resize',syncSticky);syncSticky();
  if(location.hostname==='localhost')return;
  var ticket=__OFT_MEASUREMENT_TICKET__;
- if(ticket===null){
- if(location.hostname==='localhost')return;
- !function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,document,'script','https://connect.facebook.net/en_US/fbevents.js');
- fbq('init','2468079523719290');fbq('track','PageView');
- document.querySelectorAll('.join-cta').forEach(function(a){a.addEventListener('click',function(){if(window.fbq)fbq('track','Lead')})});
-  return;
- }
  var preview=typeof ticket==='string'&&ticket.endsWith('.preview')&&location.hostname.endsWith('-ofertismo-link-router.porraloca42.workers.dev');
  if(!ticket||(!preview&&location.origin!=='https://ofertismo.com.br'))return;
  var pageId=ticket.split('.')[0], initialized=false, leadSent=false;
