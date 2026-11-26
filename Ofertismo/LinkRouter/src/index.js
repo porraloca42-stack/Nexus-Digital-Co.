@@ -10,6 +10,16 @@ import { reserveRedirect, validOperation } from './redirect.mjs';
 const DEFAULT_CONFIG = { limit: 1000, groups: [] };
 const DEFAULT_METRICS = { total: 0, groupIndex: 0, byGroup: {}, bySource: {}, byDaySource: {} };
 
+const FUNNEL_PREFIX='funnel-v4-day:';
+async function bumpDaily(txn,stage,dimensions,now=new Date()){
+ const day=dateInSaoPaulo(now),key=FUNNEL_PREFIX+day;
+ const row=await txn.get(key)||{};
+ const next=countStage({[day]:row},stage,dimensions,now);
+ if(next[day])await txn.put(key,next[day]);
+ const cutoff=FUNNEL_PREFIX+dateInSaoPaulo(new Date(now.getTime()-89*86400000));
+ const old=await txn.list({prefix:FUNNEL_PREFIX,end:cutoff,limit:100});
+ if(old.size)await txn.delete([...old.keys()]);
+}
 function reply(data, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
@@ -36,17 +46,16 @@ export class LinkRouterState extends DurableObject {
     if (path === '/internal/funnel' && request.method === 'POST') {
       const {stage,dimensions}=await request.json();
       await this.ctx.storage.transaction(async txn=>{
-        const previous=await txn.get('funnel-v4')||{};
-        const next=countStage(previous,stage,dimensions);
-        if(next!==previous)await txn.put('funnel-v4',next);
+        await bumpDaily(txn,stage,dimensions);
       });
       return reply({ok:true});
     }
     if (path === '/internal/stats') {
       const [config, metrics, funnel] = await Promise.all([
-        this.ctx.storage.get('config'), this.ctx.storage.get('metrics'), this.ctx.storage.get('funnel-v4')
+        this.ctx.storage.get('config'),this.ctx.storage.get('metrics'),this.ctx.storage.list({prefix:FUNNEL_PREFIX})
       ]);
-      return reply({ config: config || DEFAULT_CONFIG, metrics: metrics || DEFAULT_METRICS, funnel:funnel||{} });
+      const cutoff=dateInSaoPaulo(new Date(Date.now()-89*86400000));
+      return reply({config:config||DEFAULT_CONFIG,metrics:metrics||DEFAULT_METRICS,funnel:Object.fromEntries([...funnel].map(([key,value])=>[key.slice(FUNNEL_PREFIX.length),value]).filter(([day])=>day>=cutoff))});
     }
     if (path === '/internal/current-invite' && request.method === 'GET') {
       const [config, metrics] = await Promise.all([this.ctx.storage.get('config'), this.ctx.storage.get('metrics')]);
@@ -82,11 +91,9 @@ export class LinkRouterState extends DurableObject {
         if(result.target&&!result.repeated)await txn.put('metrics',result.metrics);
         if(Object.keys(result.receipts).length||Object.keys(receipts).length)await txn.put('redirect-receipts-v4',result.receipts);
         if(result.target&&!result.repeated){
-          let funnel=await txn.get('funnel-v4')||{};
-          const dimensions=traffic(input.source,input.campaign,input.creative);
-          funnel=countStage(funnel,'redirect_ok',dimensions);
-          funnel=countStage(funnel,'redirect_'+(['yes','no'].includes(input.consent)?input.consent:'unset'),dimensions);
-          await txn.put('funnel-v4',funnel);
+          const dimensions=traffic(input.source,input.campaign,input.creative),now=new Date();
+          await bumpDaily(txn,'redirect_ok',dimensions,now);
+          await bumpDaily(txn,'redirect_'+(['yes','no'].includes(input.consent)?input.consent:'unset'),dimensions,now);
         }
       });
       if(!result.target)return reply({error:result.reason},503);
@@ -235,7 +242,7 @@ export default {
       const source=cleanSource(match[1]||url.searchParams.get('origem')||'direto');
       const post=request.method==='POST';
       if(!eligibleRequest(request))return post?reply({ok:false},403):new Response('Visualização automatizada: acesso não contabilizado.',{status:200,headers:{'cache-control':'no-store'}});
-      if(post&&(url.origin!=='https://ofertismo.com.br'||request.headers.get('origin')!==url.origin))return reply({ok:false},403);
+      if(post&&(url.origin!=='https://ofertismo.com.br'||request.headers.get('origin')!==url.origin||['cross-site','same-site'].includes(request.headers.get('sec-fetch-site'))))return reply({ok:false},403);
       const data=post?await readSmallJson(request,2048):{};
       if(post&&(!data||!validOperation(data.operation)))return reply({ok:false},400);
       const operation=post?data.operation:url.searchParams.get('operation');
