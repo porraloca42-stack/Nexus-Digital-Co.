@@ -396,11 +396,40 @@ details p{margin:0;padding:0 21px 22px;color:#d5cbd0;line-height:1.6;font-size:1
  var manage=document.createElement('button');manage.type='button';manage.textContent='Preferências de cookies';manage.style.cssText='background:none;border:0;text-decoration:underline;color:inherit;cursor:pointer;font:inherit';
  manage.onclick=function(){preferences.hidden=false;syncCookieLayout()};document.querySelector('.footer-inner').appendChild(manage);
  initialize();
- document.querySelectorAll('.join-cta').forEach(function(a){a.addEventListener('click',function(){
-  if(preference()!=='oft_measure=yes'||!initialized){clearMeasurementTickets();return;}
-  sendPageview(); // flush pending PageView without delaying navigation
-  if(!leadSent){leadSent=true;if(window.fbq)fbq('track','Lead',{},{eventID:pageId+'_Lead'})}
-  var target=new URL(a.href,location.origin);target.searchParams.set('measurement_ticket',ticket);a.href=target.pathname+target.search;
+ // A short-lived transaction ID is not used for marketing or across page visits.
+ var operation=typeof crypto!=='undefined'&&typeof crypto.randomUUID==='function'?crypto.randomUUID():null,joinBusy=false;
+ function canMeasure(){return Boolean(ticket&&initialized&&preference()==='oft_measure=yes')}
+ function fallbackJoin(target){
+  if(operation)target.searchParams.set('operation',operation);
+  if(canMeasure())target.searchParams.set('measurement_ticket',ticket);
+  else target.searchParams.delete('measurement_ticket');
+  location.assign(target.pathname+target.search);
+ }
+ function showJoinStatus(message){
+  var status=document.getElementById('join-status');
+  if(!status){status=document.createElement('div');status.id='join-status';status.setAttribute('role','status');status.style.cssText='position:fixed;top:12px;left:12px;right:12px;z-index:70;padding:12px;border-radius:8px;background:#18181b;color:#fff;text-align:center;font:14px system-ui';document.body.appendChild(status)}
+  status.textContent=message;
+ }
+ window.addEventListener('pageshow',function(){joinBusy=false});
+ document.querySelectorAll('.join-cta').forEach(function(a){a.addEventListener('click',async function(e){
+  if(!e||e.ctrlKey||e.metaKey||e.shiftKey||e.altKey||e.button>0||!operation)return;
+  e.preventDefault();if(joinBusy)return;joinBusy=true;
+  var target=new URL(a.href,location.origin);
+  if(canMeasure())sendPageview();
+  var body={operation:operation},headers={'content-type':'application/json'};
+  if(canMeasure()){body.ticket=ticket;var click=p.get('fbclid')||'';if(/^[A-Za-z0-9_-]{1,512}$/.test(click))headers['x-oft-fbclid']=click;}
+  var timer;
+  try{
+   var result=await Promise.race([fetch(target.pathname+target.search,{method:'POST',headers:headers,body:JSON.stringify(body),credentials:'same-origin',keepalive:true}).then(async function(r){return {status:r.status,data:await r.json()}}),new Promise(function(_,reject){timer=setTimeout(function(){reject(new Error('redirect_timeout'))},1500)})]);
+   clearTimeout(timer);
+   if(result.status===503){joinBusy=false;showJoinStatus(result.data.error||'Grupo indisponível. Tente novamente.');return;}
+   if(result.status!==200||!result.data||result.data.ok!==true)throw new Error('redirect_invalid');
+   var destination=new URL(result.data.url,location.origin);
+   var valid=preview?destination.origin===location.origin&&destination.pathname==='/preview-redirect-done':destination.protocol==='https:'&&['chat.whatsapp.com','whatsapp.com','t.me','telegram.me'].includes(destination.hostname)&&!destination.username&&!destination.password;
+   if(!valid)throw new Error('redirect_target');
+   if(canMeasure()&&!leadSent&&result.data.leadEventID===pageId+'_Lead'){leadSent=true;if(window.fbq)fbq('track','Lead',{},{eventID:result.data.leadEventID});}
+   location.assign(destination.href);
+  }catch(err){clearTimeout(timer);fallbackJoin(target);}
  })});
 
 })();
