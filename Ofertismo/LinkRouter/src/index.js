@@ -3,6 +3,7 @@ import { cleanSource, dateInSaoPaulo, nextClick, validateConfig, retainMetricsFo
 import { landingHtml, privacyHtml } from './landing-v3.mjs';
 import { renderInviteTest } from './invite-test.mjs';
 import { allowed, issueTicket, dispatchMeasurement, observeMeasurement } from './measurement.mjs';
+import { traffic, trafficFromUrl, eligibleRequest, consentState, countStage, recordStage, readSmallJson } from './operational.mjs';
 
 const DEFAULT_CONFIG = { limit: 1000, groups: [] };
 const DEFAULT_METRICS = { total: 0, groupIndex: 0, byGroup: {}, bySource: {}, byDaySource: {} };
@@ -30,11 +31,20 @@ export class LinkRouterState extends DurableObject {
       await this.ctx.storage.setAlarm(Date.now()+7200000);
       return reply({ok:true});
     }
+    if (path === '/internal/funnel' && request.method === 'POST') {
+      const {stage,dimensions}=await request.json();
+      await this.ctx.storage.transaction(async txn=>{
+        const previous=await txn.get('funnel-v4')||{};
+        const next=countStage(previous,stage,dimensions);
+        if(next!==previous)await txn.put('funnel-v4',next);
+      });
+      return reply({ok:true});
+    }
     if (path === '/internal/stats') {
-      const [config, metrics] = await Promise.all([
-        this.ctx.storage.get('config'), this.ctx.storage.get('metrics')
+      const [config, metrics, funnel] = await Promise.all([
+        this.ctx.storage.get('config'), this.ctx.storage.get('metrics'), this.ctx.storage.get('funnel-v4')
       ]);
-      return reply({ config: config || DEFAULT_CONFIG, metrics: metrics || DEFAULT_METRICS });
+      return reply({ config: config || DEFAULT_CONFIG, metrics: metrics || DEFAULT_METRICS, funnel:funnel||{} });
     }
     if (path === '/internal/current-invite' && request.method === 'GET') {
       const [config, metrics] = await Promise.all([this.ctx.storage.get('config'), this.ctx.storage.get('metrics')]);
@@ -97,7 +107,7 @@ const el = id => document.getElementById(id);
 function groupRow(g={id:'',url:''}) {const block=document.createElement('div');block.className='item';const a=document.createElement('input');a.placeholder='grupo-01';a.value=g.id;a.className='wide';a.setAttribute('aria-label','Identificador');const b=document.createElement('input');b.placeholder='https://chat.whatsapp.com/...';b.value=g.url;b.className='wide';b.setAttribute('aria-label','Link do convite');const remove=document.createElement('button');remove.textContent='Remover da configuração';remove.onclick=()=>block.remove();block.append(a,b,remove);el('groups').append(block)}
 async function api(method,body){const r=await fetch('/api/admin/config',{method,headers:{'authorization':'Bearer '+el('token').value,'content-type':'application/json'},body:body?JSON.stringify(body):undefined});const data=await r.json();if(!r.ok)throw Error(data.error||'Erro '+r.status);return data}
 el('add').onclick=()=>groupRow();
-el('load').onclick=async()=>{try{const d=await api('GET');el('limit').value=d.config.limit;el('groups').replaceChildren();d.config.groups.forEach(groupRow);el('out').textContent=JSON.stringify(d.metrics,null,2)}catch(e){el('out').textContent=e.message}};
+el('load').onclick=async()=>{try{const d=await api('GET');el('limit').value=d.config.limit;el('groups').replaceChildren();d.config.groups.forEach(groupRow);el('out').textContent=JSON.stringify({...d.metrics,funnelV4:d.funnel||{}},null,2)}catch(e){el('out').textContent=e.message}};
 el('save').onclick=async()=>{try{const groups=[...el('groups').children].map(e=>({id:e.children[0].value.trim(),url:e.children[1].value.trim()}));if(!confirm('Salvar configuração de '+groups.length+' grupos?'))return;await api('POST',{limit:Number(el('limit').value),groups});el('out').textContent='Salvo. Consulte novamente para ver os números.'}catch(e){el('out').textContent=e.message}};
 el('reset').onclick=async()=>{
  if(!confirm('Zerar TODOS os contadores? Grupos e limite serão preservados.'))return;
@@ -112,13 +122,23 @@ el('reset').onclick=async()=>{
 </script></body></html>`;
 }
 
+function pageDimensions(request){
+  try{const ref=new URL(request.headers.get('referer')||'');if(ref.origin==='https://ofertismo.com.br')return trafficFromUrl(ref);}catch{}
+  return traffic('outro','','');
+}
+async function reportMeasurement(request,env,ticket,name,dimensions){
+  const result=await observeMeasurement(()=>dispatchMeasurement(request,env,ticket,name),name);
+  const prefix=name==='PageView'?'capi_pageview_':'capi_lead_';
+  if(result?.sent)await recordStage(env,request,prefix+'accepted',dimensions);
+  else if(['transport_error','graph_rejected','internal_error'].includes(result?.reason))await recordStage(env,request,prefix+'failed',dimensions);
+}
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
     const path = url.pathname;
     if(path.startsWith('/__capi-test/'))return reply({ok:false},404);
     const preview=url.hostname.endsWith('-ofertismo-link-router.porraloca42.workers.dev');
-    if(preview&&(/^\/(entrar|go)(\/|$)/.test(path)||path==='/api/measurement/pageview')){
+    if(preview&&(/^\/(entrar|go)(\/|$)/.test(path)||path==='/api/measurement/pageview'||path==='/api/operational/choice')){
       return reply({ok:true,preview:true,route:path,tracking:false,groupCounters:false,utm_campaign:url.searchParams.get('utm_campaign'),utm_content:url.searchParams.get('utm_content'),eventID:url.searchParams.has('measurement_ticket')?url.searchParams.get('measurement_ticket').split('.')[0]+'_Lead':null});
     }
     if (path === '/health' && request.method === 'GET') return reply({ status: 'ok', app: 'ofertismo-router' });
@@ -131,8 +151,18 @@ export default {
           try{ticket=await issueTicket(path,env)}catch{}
         }
       }
-      const html=landingHtml.replace('__OFT_MEASUREMENT_TICKET__',JSON.stringify(ticket));
+      const dimensions=trafficFromUrl(url);
+      if(!preview)ctx.waitUntil(recordStage(env,request,'landing_request',dimensions));
+      const fallback='/entrar/'+dimensions.source+(dimensions.campaign?'?utm_campaign='+dimensions.campaign+'&amp;utm_content='+dimensions.creative:'');
+      const html=landingHtml.replace('__OFT_MEASUREMENT_TICKET__',JSON.stringify(ticket)).replaceAll('href="/entrar/direto"','href="'+fallback+'"');
       return new Response(html, { headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control':'private, no-store', 'x-content-type-options': 'nosniff', 'x-frame-options': 'DENY' } });
+    }
+    if(path==='/api/operational/choice' && request.method==='POST'){
+      if(url.origin!=='https://ofertismo.com.br'||request.headers.get('origin')!==url.origin||!eligibleRequest(request))return reply({ok:false},403);
+      const data=await readSmallJson(request,512);
+      if(!data||!['yes','no'].includes(data.choice))return reply({ok:false},400);
+      ctx.waitUntil(recordStage(env,request,data.choice==='yes'?'consent_accept':'consent_decline',traffic(data.source,data.campaign,data.creative)));
+      return new Response(null,{status:204,headers:{'cache-control':'no-store'}});
     }
     if(path==='/api/measurement/pageview' && request.method==='POST'){
       if(!allowed(env)||url.origin!=='https://ofertismo.com.br'||request.headers.get('origin')!==url.origin)return reply({ok:false},403);
@@ -143,7 +173,7 @@ export default {
         while(true){const {value,done}=await reader.read();if(done)break;size+=value.byteLength;if(size>256){await reader.cancel();return reply({ok:false},400)}ticket+=decoder.decode(value,{stream:true});}
         ticket+=decoder.decode();
       }catch{return reply({ok:false},400)}
-      ctx.waitUntil(observeMeasurement(()=>dispatchMeasurement(request,env,ticket,'PageView'),'PageView'));
+      ctx.waitUntil(reportMeasurement(request,env,ticket,'PageView',pageDimensions(request)));
       return new Response(null,{status:204,headers:{'cache-control':'no-store'}});
     }
     if (path === '/privacidade' && request.method === 'GET') {
@@ -179,21 +209,23 @@ export default {
     const match = path.match(/^\/(?:entrar|go)(?:\/([a-z0-9-]{1,40}))?\/?$/);
     if (match && request.method === 'GET') {
       const source = cleanSource(match[1] || url.searchParams.get('origem') || 'direto');
-      const agent = request.headers.get('user-agent') || '';
-      if (/(bot|crawler|spider|preview|facebookexternalhit|curl|headless|slackbot)/i.test(agent)) {
+      if (!eligibleRequest(request)) {
         return new Response('Visualização automatizada: acesso não contabilizado.', { status: 200, headers: { 'cache-control': 'no-store' } });
       }
+      const dimensions=traffic(source,url.searchParams.get('utm_campaign'),url.searchParams.get('utm_content'));
       const result = await stub.fetch('https://router.local/internal/redirect', {
         method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ source, campaign: url.searchParams.get('utm_campaign'), creative: url.searchParams.get('utm_content') })
       });
       if (!result.ok) {
+        ctx.waitUntil(recordStage(env,request,'redirect_unavailable',dimensions));
         const msg = (await result.json()).error;
         const body = msg === 'no_groups' ? 'O grupo será disponibilizado em breve.' : 'Todos os grupos cadastrados atingiram o limite de acessos.';
         return new Response(body, { status: 503, headers: { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store' } });
       }
       const { url: target } = await result.json();
       const ticket=url.searchParams.get('measurement_ticket');
-      if(ticket&&allowed(env))ctx.waitUntil(observeMeasurement(()=>dispatchMeasurement(request,env,ticket,'Lead'),'Lead'));
+      ctx.waitUntil(Promise.all([recordStage(env,request,'redirect_ok',dimensions),recordStage(env,request,'redirect_'+consentState(request),dimensions)]));
+      if(ticket&&allowed(env))ctx.waitUntil(reportMeasurement(request,env,ticket,'Lead',dimensions));
       return new Response(null,{status:302,headers:{location:target,'cache-control':'no-store','referrer-policy':'no-referrer'}});
     }
     return reply({ error: 'Rota não encontrada. Use /entrar/team, /entrar/meta ou /admin.' }, 404);
