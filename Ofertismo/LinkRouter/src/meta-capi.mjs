@@ -26,15 +26,26 @@ export async function sendCapi(input, env, fetchImpl=fetch) {
   if (!event) return {sent:false,reason:'invalid_or_no_consent'};
   const body={data:[event]};
   if (env.META_CAPI_TEST_EVENT_CODE) body.test_event_code=env.META_CAPI_TEST_EVENT_CODE;
-  try {
-    const r=await fetchImpl(ENDPOINT,{method:'POST',headers:{'content-type':'application/json','authorization':'Bearer '+env.META_CAPI_TOKEN},body:JSON.stringify(body),signal:AbortSignal.timeout(4000)});
-    const result=await r.json();
-    const sent=r.ok && result.events_received===1;
-    const diagnostics={};
-    if(!sent&&result.error){
-      if(Number.isSafeInteger(result.error.code))diagnostics.graph_error_code=result.error.code;
-      if(Number.isSafeInteger(result.error.error_subcode))diagnostics.graph_error_subcode=result.error.error_subcode;
-    }
-    return {sent,status:r.status,...(!sent?{reason:'graph_rejected'}:{}),...diagnostics};
-  } catch {return {sent:false,reason:'transport_error'};}
+  // One short retry only for transient failures within the original consented request.
+  // No durable queue, no new event ID, no retry for rate limits or definitive 4xx.
+  const serialized=JSON.stringify(body);
+  let last;
+  for(let attempt=1;attempt<=2;attempt++){
+    let retryable=false;
+    try {
+      const r=await fetchImpl(ENDPOINT,{method:'POST',headers:{'content-type':'application/json','authorization':'Bearer '+env.META_CAPI_TOKEN},body:serialized,signal:AbortSignal.timeout(4000)});
+      let result={};
+      try{result=await r.json();}catch{}
+      const sent=r.ok && result?.events_received===1;
+      const diagnostics={};
+      if(!sent&&result?.error){
+        if(Number.isSafeInteger(result.error.code))diagnostics.graph_error_code=result.error.code;
+        if(Number.isSafeInteger(result.error.error_subcode))diagnostics.graph_error_subcode=result.error.error_subcode;
+      }
+      last={sent,status:r.status,...(!sent?{reason:'graph_rejected'}:{}),...diagnostics};
+      retryable=!sent&&[500,502,503,504].includes(r.status)&&!r.headers?.get('retry-after');
+    } catch {last={sent:false,reason:'transport_error'};retryable=true;}
+    if(!retryable||attempt===2)return {...last,...(attempt>1?{attempts:attempt}:{})};
+  }
+  return last;
 }

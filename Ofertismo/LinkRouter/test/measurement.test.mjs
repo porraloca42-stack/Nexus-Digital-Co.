@@ -66,14 +66,14 @@ test('fluxo integrado: IDs pareados, consentimento, claim separado e dados reais
   assert.equal(event.user_data.client_ip_address,'192.0.2.1');
  }
 });
-test('falha no transporte não cria segundo envio com o mesmo evento',async()=>{
+test('falha no transporte permite uma tentativa curta e bloqueia novo claim',async()=>{
  const t=await issueTicket('/',env);let count=0,claimed=false;
  const e={...env,ROUTER_STATE:{idFromName:s=>s,get:()=>({fetch:async()=>{if(claimed)return new Response(null,{status:409});claimed=true;return new Response('{}',{status:200})}})}};
  const pv=new Request('https://ofertismo.com.br/api/measurement/pageview',{method:'POST',headers:{origin:'https://ofertismo.com.br',cookie:'oft_measure=yes','user-agent':'Mozilla/5.0'}});
  const fake=async()=>{count++;throw Error('simulated network failure')};
  assert.equal((await dispatchMeasurement(pv,e,t,'PageView',fake)).reason,'transport_error');
  assert.equal((await dispatchMeasurement(pv,e,t,'PageView',fake)).reason,'duplicate_or_unavailable');
- assert.equal(count,1);
+ assert.equal(count,2);
 });
 
 test('observability is redacted and omits unconsented requests',async()=>{
@@ -90,4 +90,22 @@ test('production requires independent signing key; no fallback to admin token',a
  assert.equal(await issueTicket('/',{...env,META_MEASUREMENT_SIGNING_KEY:undefined,ADMIN_TOKEN:'mock-admin-key-long-enough-for-testing'}),'');
  assert.equal(await issueTicket('/',{...env,ADMIN_TOKEN:env.META_MEASUREMENT_SIGNING_KEY}),'');
  assert.equal(await issueTicket('/',{...env,META_CAPI_ENABLED:'false'}),'');
+});
+
+test('consented PageView recovers real click from header even without referer',async()=>{
+ const t=await issueTicket('/',env);const page=await verifyTicket(t,env);let payload;
+ const e={...env,ROUTER_STATE:{idFromName:s=>s,get:()=>({fetch:async()=>new Response('{}')})}};
+ const headers={origin:'https://ofertismo.com.br',cookie:'oft_measure=yes','user-agent':'Mozilla/5.0','x-oft-fbclid':'REAL_CLICK_FIXTURE'};
+ const req=new Request('https://ofertismo.com.br/api/measurement/pageview',{method:'POST',headers});
+ const fake=async(_,init)=>{payload=JSON.parse(init.body);return new Response('{"events_received":1}')};
+ assert.equal((await dispatchMeasurement(req,e,t,'PageView',fake)).sent,true);assert.equal(payload.data[0].user_data.fbc,'fb.1.'+(page.issuedAt*1000)+'.REAL_CLICK_FIXTURE');
+});
+
+test('Lead without Referer accepts only verified same-origin document navigation and signed ticket',async()=>{
+ const t=await issueTicket('/',env);let calls=0;
+ const e={...env,ROUTER_STATE:{idFromName:s=>s,get:()=>({fetch:async()=>new Response('{}')})}};
+ const headers={'sec-fetch-site':'same-origin','sec-fetch-mode':'navigate','sec-fetch-dest':'document',cookie:'oft_measure=yes','user-agent':'Mozilla/5.0'};
+ const fake=async()=>{calls++;return new Response('{"events_received":1}')};
+ for(const h of [{...headers,'sec-fetch-site':'cross-site'},{...headers,referer:'https://evil.example/'},{...headers,'sec-fetch-mode':'cors'}])assert.equal((await dispatchMeasurement(new Request('https://ofertismo.com.br/entrar/meta',{headers:h}),e,t,'Lead',fake)).sent,false);
+ assert.equal((await dispatchMeasurement(new Request('https://ofertismo.com.br/entrar/meta',{headers}),e,t,'Lead',fake)).sent,true);assert.equal(calls,1);
 });

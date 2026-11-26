@@ -33,3 +33,10 @@ test('Graph rejection returns only numeric diagnostics, not response message',as
  const r=await sendCapi(input,{META_CAPI_ENABLED:'true',META_CAPI_TOKEN:'fake'},async()=>new Response(JSON.stringify({error:{message:'private payload',code:100,error_subcode:2804005}}),{status:400}));
  assert.deepEqual(r,{sent:false,status:400,reason:'graph_rejected',graph_error_code:100,graph_error_subcode:2804005});
 });
+
+test('retry 503 preserves the complete payload and event ID, never retries a 400 or 429',async()=>{
+ const env={META_CAPI_ENABLED:'true',META_CAPI_TOKEN:'mock'};const bodies=[];
+ const result=await sendCapi(input,env,async(_,init)=>{bodies.push(init.body);return bodies.length===1?new Response('temporary',{status:503}):new Response('{"events_received":1}')});
+ assert.equal(result.sent,true);assert.equal(result.attempts,2);assert.equal(bodies.length,2);assert.equal(bodies[0],bodies[1]);
+ for(const status of [400,429]){let count=0;await sendCapi(input,env,async()=>{count++;return new Response('{}',{status})});assert.equal(count,1);}
+});

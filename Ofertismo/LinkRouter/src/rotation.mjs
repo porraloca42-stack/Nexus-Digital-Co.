@@ -1,3 +1,4 @@
+import {knownCreative} from './campaigns.mjs';
 export const DEFAULT_LIMIT = 1000;
 
 export function cleanSource(value) {
@@ -68,7 +69,7 @@ export function nextClick(config, metrics, source, day, campaign, creative) {
   next.bySource[source] = (next.bySource[source] || 0) + 1;
   const dailyKey = `${day}|${source}`;
   next.byDaySource[dailyKey] = (next.byDaySource[dailyKey] || 0) + 1;
-  if (source === 'meta' && campaign === 'oft_t03' && ['imagem_01', 'video_01'].includes(creative)) {
+  if (source === 'meta' && knownCreative(campaign,creative)) {
     const key = `${campaign}|${creative}`;
     next.byCampaignCreative ||= {};
     next.byDayCampaignCreative ||= {};

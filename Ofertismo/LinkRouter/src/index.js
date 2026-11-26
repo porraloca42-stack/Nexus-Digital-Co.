@@ -2,11 +2,24 @@ import { DurableObject } from 'cloudflare:workers';
 import { cleanSource, dateInSaoPaulo, nextClick, validateConfig, retainMetricsForGroups } from './rotation.mjs';
 import { landingHtml, privacyHtml } from './landing-v3.mjs';
 import { renderInviteTest } from './invite-test.mjs';
-import { allowed, issueTicket, dispatchMeasurement, observeMeasurement } from './measurement.mjs';
+import { allowed, issueTicket, verifyTicket, dispatchMeasurement, observeMeasurement } from './measurement.mjs';
+import { traffic, trafficFromUrl, eligibleRequest, consentState, countStage, recordStage, readSmallJson } from './operational.mjs';
+
+import { reserveRedirect, validOperation } from './redirect.mjs';
 
 const DEFAULT_CONFIG = { limit: 1000, groups: [] };
 const DEFAULT_METRICS = { total: 0, groupIndex: 0, byGroup: {}, bySource: {}, byDaySource: {} };
 
+const FUNNEL_PREFIX='funnel-v4-day:';
+async function bumpDaily(txn,stage,dimensions,now=new Date()){
+ const day=dateInSaoPaulo(now),key=FUNNEL_PREFIX+day;
+ const row=await txn.get(key)||{};
+ const next=countStage({[day]:row},stage,dimensions,now);
+ if(next[day])await txn.put(key,next[day]);
+ const cutoff=FUNNEL_PREFIX+dateInSaoPaulo(new Date(now.getTime()-89*86400000));
+ const old=await txn.list({prefix:FUNNEL_PREFIX,end:cutoff,limit:100});
+ if(old.size)await txn.delete([...old.keys()]);
+}
 function reply(data, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
@@ -30,11 +43,19 @@ export class LinkRouterState extends DurableObject {
       await this.ctx.storage.setAlarm(Date.now()+7200000);
       return reply({ok:true});
     }
+    if (path === '/internal/funnel' && request.method === 'POST') {
+      const {stage,dimensions}=await request.json();
+      await this.ctx.storage.transaction(async txn=>{
+        await bumpDaily(txn,stage,dimensions);
+      });
+      return reply({ok:true});
+    }
     if (path === '/internal/stats') {
-      const [config, metrics] = await Promise.all([
-        this.ctx.storage.get('config'), this.ctx.storage.get('metrics')
+      const [config, metrics, funnel] = await Promise.all([
+        this.ctx.storage.get('config'),this.ctx.storage.get('metrics'),this.ctx.storage.list({prefix:FUNNEL_PREFIX})
       ]);
-      return reply({ config: config || DEFAULT_CONFIG, metrics: metrics || DEFAULT_METRICS });
+      const cutoff=dateInSaoPaulo(new Date(Date.now()-89*86400000));
+      return reply({config:config||DEFAULT_CONFIG,metrics:metrics||DEFAULT_METRICS,funnel:Object.fromEntries([...funnel].map(([key,value])=>[key.slice(FUNNEL_PREFIX.length),value]).filter(([day])=>day>=cutoff))});
     }
     if (path === '/internal/current-invite' && request.method === 'GET') {
       const [config, metrics] = await Promise.all([this.ctx.storage.get('config'), this.ctx.storage.get('metrics')]);
@@ -50,25 +71,29 @@ export class LinkRouterState extends DurableObject {
       await this.ctx.storage.transaction(async (txn) => {
         const existing = (await txn.get('metrics')) || DEFAULT_METRICS;
         await txn.put('config', config);
+        await txn.delete('redirect-receipts-v4');
         await txn.put('metrics', retainMetricsForGroups(existing, config.groups));
       });
       return reply({ ok: true });
     }
     if (path === '/internal/reset' && request.method === 'POST') {
-      await this.ctx.storage.put('metrics', structuredClone(DEFAULT_METRICS));
+      await this.ctx.storage.transaction(async txn=>{await txn.put('metrics',structuredClone(DEFAULT_METRICS));await txn.delete('redirect-receipts-v4');});
       return reply({ ok: true });
     }
     if (path === '/internal/redirect' && request.method === 'POST') {
-      const { source, campaign, creative } = await request.json();
+      const input=await request.json();
       let result;
-      await this.ctx.storage.transaction(async (txn) => {
-        const config = (await txn.get('config')) || DEFAULT_CONFIG;
-        const metrics = (await txn.get('metrics')) || DEFAULT_METRICS;
-        result = nextClick(config, metrics, cleanSource(source), dateInSaoPaulo(), campaign, creative);
-        if (result.target) await txn.put('metrics', result.metrics);
+      await this.ctx.storage.transaction(async txn=>{
+        const config=await txn.get('config')||DEFAULT_CONFIG;
+        const metrics=await txn.get('metrics')||DEFAULT_METRICS;
+        const receipts=await txn.get('redirect-receipts-v4')||{};
+        result=reserveRedirect(config,metrics,receipts,input);
+        if(result.target&&!result.repeated)await txn.put('metrics',result.metrics);
+        if(Object.keys(result.receipts).length||Object.keys(receipts).length)await txn.put('redirect-receipts-v4',result.receipts);
+
       });
-      if (!result.target) return reply({ error: result.reason }, 503);
-      return reply({ url: result.target.url });
+      if(!result.target)return reply({error:result.reason},503);
+      return reply({url:result.target.url,repeated:result.repeated});
     }
     return reply({ error: 'Not found' }, 404);
   }
@@ -91,13 +116,17 @@ function isAuthorized(request, env) {
 
 function adminHtml() {
   return `<!doctype html><html lang="pt-BR"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="robots" content="noindex,nofollow"><title>Ofertismo — Controle de Grupos</title>
-<style>body{font-family:system-ui,-apple-system,sans-serif;background:#12151b;color:#f5f5f5;max-width:840px;margin:30px auto;padding:18px}main{background:#1c2029;border:1px solid #333b4a;border-radius:16px;padding:20px}input,button{font:inherit;border-radius:8px;padding:10px;background:#292e39;color:#fff;border:1px solid #465065}button{cursor:pointer}button:hover{background:#394150}label{display:block;margin:14px 0 6px}.wide{width:96%}.row{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0}.row>*{flex:1}.item{background:#202630;padding:12px;border-radius:10px;margin:8px 0}.muted{color:#aab4c4;font-size:.9em}#out{white-space:pre-wrap;overflow-wrap:anywhere}h1{font-size:1.5em}</style></head><body><main><h1>Ofertismo — Grupos</h1><p class="muted">Acessos válidos, não membros efetivos. Nenhum link é salvo no GitHub.</p><label>Chave administrativa Cloudflare</label><input id="token" class="wide" type="password" autocomplete="off" placeholder="Cole a chave configurada em Secrets"><div class="row"><button id="load">Consultar dados</button><button id="add">Adicionar grupo</button></div><label>Limite de acessos por grupo</label><input id="limit" type="number" min="1" max="1000000" value="1000"><h3>Ordem de redirecionamento</h3><div id="groups"></div><button id="save">Salvar configuração</button><h3>Estatísticas</h3><button id="reset" type="button">Zerar estatísticas</button><pre id="out" class="muted">Faça login para consultar.</pre></main>
+<style>body{font-family:system-ui,-apple-system,sans-serif;background:#12151b;color:#f5f5f5;max-width:840px;margin:30px auto;padding:18px}main{background:#1c2029;border:1px solid #333b4a;border-radius:16px;padding:20px}input,button{font:inherit;border-radius:8px;padding:10px;background:#292e39;color:#fff;border:1px solid #465065}button{cursor:pointer}button:hover{background:#394150}label{display:block;margin:14px 0 6px}.wide{width:96%}.row{display:flex;gap:8px;flex-wrap:wrap;margin:8px 0}.row>*{flex:1}.item{background:#202630;padding:12px;border-radius:10px;margin:8px 0}.muted{color:#aab4c4;font-size:.9em}#out{white-space:pre-wrap;overflow-wrap:anywhere}h1{font-size:1.5em}</style></head><body><main><h1>Ofertismo — Grupos</h1><p class="muted">Acessos válidos, não membros efetivos. Nenhum link é salvo no GitHub.</p><label>Chave administrativa Cloudflare</label><input id="token" class="wide" type="password" autocomplete="off" placeholder="Cole a chave configurada em Secrets"><div class="row"><button id="load">Consultar dados</button><button id="add">Adicionar grupo</button></div><label>Limite de acessos por grupo</label><input id="limit" type="number" min="1" max="1000000" value="1000"><h3>Ordem de redirecionamento</h3><div id="groups"></div><button id="save">Salvar configuração</button><h3>Funil V4 — contagens operacionais</h3><p class="muted">Requisições e ações, não visitantes únicos. UTMs identificam links, não provam mídia paga. Dados agregados recentes; testes e bloqueadores podem afetar a leitura.</p><label>Data (Brasília)</label><input type="date" id="funnel-day"><div id="funnel-view" style="overflow-x:auto"></div><h3>Estatísticas do rotacionador</h3><button id="reset" type="button">Zerar estatísticas</button><pre id="out" class="muted">Faça login para consultar.</pre></main>
 <script>
 const el = id => document.getElementById(id);
+let funnelData={};
+el('funnel-day').value=new Intl.DateTimeFormat('sv-SE',{timeZone:'America/Sao_Paulo',year:'numeric',month:'2-digit',day:'2-digit'}).format(new Date());
+function showFunnel(){const target=el('funnel-view');target.replaceChildren();const row=funnelData[el('funnel-day').value]||{},groups={};for(const [key,value] of Object.entries(row)){const parts=key.split('|');if(parts.length!==4)continue;const [source,campaign,creative,stage]=parts;const name=[source,campaign,creative].join(' / ');(groups[name]??={})[stage]=value;}const fields=[['landing_request','Acessos LP'],['consent_accept','Aceites'],['consent_decline','Recusas'],['redirect_ok','Redirects OK'],['redirect_unavailable','Indisponíveis'],['redirect_yes','Com aceite'],['redirect_no','Com recusa'],['redirect_unset','Sem escolha'],['capi_pageview_accepted','PV CAPI OK'],['capi_lead_accepted','Lead CAPI OK'],['capi_pageview_failed','PV falhou'],['capi_lead_failed','Lead falhou']];if(!Object.keys(groups).length){target.textContent='Sem registros V4 para a data.';return;}const table=document.createElement('table');table.style.cssText='border-collapse:collapse;min-width:100%;font-size:12px';function line(values,tag){const tr=document.createElement('tr');for(const value of values){const cell=document.createElement(tag);cell.textContent=String(value);cell.style.cssText='padding:8px;border:1px solid #49505a;text-align:left';tr.append(cell);}table.append(tr);}line(['Origem / campanha / criativo',...fields.map(x=>x[1])],'th');for(const [name,data] of Object.entries(groups))line([name,...fields.map(x=>data[x[0]]||0)],'td');target.append(table);}
+el('funnel-day').onchange=showFunnel;
 function groupRow(g={id:'',url:''}) {const block=document.createElement('div');block.className='item';const a=document.createElement('input');a.placeholder='grupo-01';a.value=g.id;a.className='wide';a.setAttribute('aria-label','Identificador');const b=document.createElement('input');b.placeholder='https://chat.whatsapp.com/...';b.value=g.url;b.className='wide';b.setAttribute('aria-label','Link do convite');const remove=document.createElement('button');remove.textContent='Remover da configuração';remove.onclick=()=>block.remove();block.append(a,b,remove);el('groups').append(block)}
 async function api(method,body){const r=await fetch('/api/admin/config',{method,headers:{'authorization':'Bearer '+el('token').value,'content-type':'application/json'},body:body?JSON.stringify(body):undefined});const data=await r.json();if(!r.ok)throw Error(data.error||'Erro '+r.status);return data}
 el('add').onclick=()=>groupRow();
-el('load').onclick=async()=>{try{const d=await api('GET');el('limit').value=d.config.limit;el('groups').replaceChildren();d.config.groups.forEach(groupRow);el('out').textContent=JSON.stringify(d.metrics,null,2)}catch(e){el('out').textContent=e.message}};
+el('load').onclick=async()=>{try{const d=await api('GET');el('limit').value=d.config.limit;el('groups').replaceChildren();d.config.groups.forEach(groupRow);funnelData=d.funnel||{};showFunnel();el('out').textContent=JSON.stringify({...d.metrics,funnelV4:funnelData},null,2)}catch(e){el('out').textContent=e.message}};
 el('save').onclick=async()=>{try{const groups=[...el('groups').children].map(e=>({id:e.children[0].value.trim(),url:e.children[1].value.trim()}));if(!confirm('Salvar configuração de '+groups.length+' grupos?'))return;await api('POST',{limit:Number(el('limit').value),groups});el('out').textContent='Salvo. Consulte novamente para ver os números.'}catch(e){el('out').textContent=e.message}};
 el('reset').onclick=async()=>{
  if(!confirm('Zerar TODOS os contadores? Grupos e limite serão preservados.'))return;
@@ -112,13 +141,31 @@ el('reset').onclick=async()=>{
 </script></body></html>`;
 }
 
+function pageDimensions(request){
+  try{const ref=new URL(request.headers.get('referer')||'');if(ref.origin==='https://ofertismo.com.br')return trafficFromUrl(ref);}catch{}
+  if(request.headers.get('origin')==='https://ofertismo.com.br')return traffic(request.headers.get('x-oft-source'),request.headers.get('x-oft-campaign'),request.headers.get('x-oft-creative'));
+  return traffic('outro','','');
+}
+async function reportMeasurement(request,env,ticket,name,dimensions){
+  const result=await observeMeasurement(()=>dispatchMeasurement(request,env,ticket,name),name);
+  const prefix=name==='PageView'?'capi_pageview_':'capi_lead_';
+  if(result?.sent)await recordStage(env,request,prefix+'accepted',dimensions);
+  else if(['transport_error','graph_rejected','internal_error'].includes(result?.reason))await recordStage(env,request,prefix+'failed',dimensions);
+}
 export default {
   async fetch(request, env, ctx) {
     const url = new URL(request.url);
     const path = url.pathname;
     if(path.startsWith('/__capi-test/'))return reply({ok:false},404);
     const preview=url.hostname.endsWith('-ofertismo-link-router.porraloca42.workers.dev');
-    if(preview&&(/^\/(entrar|go)(\/|$)/.test(path)||path==='/api/measurement/pageview')){
+    if(preview&&path==='/preview-redirect-done')return reply({ok:true,preview:true,tracking:false,groupCounters:false});
+    if(preview&&/^\/(entrar|go)(\/|$)/.test(path)&&request.method==='POST'){
+      const data=await readSmallJson(request,2048);
+      if(!data||!validOperation(data.operation)||request.headers.get('origin')!==url.origin)return reply({ok:false},400);
+      const id=typeof data.ticket==='string'&&/^[0-9a-f-]{36}\.preview$/.test(data.ticket)&&consentState(request)==='yes'?data.ticket.split('.')[0]+'_Lead':null;
+      return reply({ok:true,preview:true,url:'/preview-redirect-done',leadEventID:id,tracking:false,groupCounters:false});
+    }
+    if(preview&&(/^\/(entrar|go)(\/|$)/.test(path)||path==='/api/measurement/pageview'||path==='/api/operational/choice')){
       return reply({ok:true,preview:true,route:path,tracking:false,groupCounters:false,utm_campaign:url.searchParams.get('utm_campaign'),utm_content:url.searchParams.get('utm_content'),eventID:url.searchParams.has('measurement_ticket')?url.searchParams.get('measurement_ticket').split('.')[0]+'_Lead':null});
     }
     if (path === '/health' && request.method === 'GET') return reply({ status: 'ok', app: 'ofertismo-router' });
@@ -131,8 +178,18 @@ export default {
           try{ticket=await issueTicket(path,env)}catch{}
         }
       }
-      const html=landingHtml.replace('__OFT_MEASUREMENT_TICKET__',JSON.stringify(ticket));
+      const dimensions=trafficFromUrl(url);
+      if(!preview)ctx.waitUntil(recordStage(env,request,'landing_request',dimensions));
+      const fallback='/entrar/'+dimensions.source+(dimensions.campaign?'?utm_campaign='+dimensions.campaign+'&amp;utm_content='+dimensions.creative:'');
+      const html=landingHtml.replace('__OFT_MEASUREMENT_TICKET__',JSON.stringify(ticket)).replaceAll('href="/entrar/direto"','href="'+fallback+'"');
       return new Response(html, { headers: { 'content-type': 'text/html; charset=utf-8', 'cache-control':'private, no-store', 'x-content-type-options': 'nosniff', 'x-frame-options': 'DENY' } });
+    }
+    if(path==='/api/operational/choice' && request.method==='POST'){
+      if(url.origin!=='https://ofertismo.com.br'||request.headers.get('origin')!==url.origin||!eligibleRequest(request))return reply({ok:false},403);
+      const data=await readSmallJson(request,512);
+      if(!data||!['yes','no'].includes(data.choice))return reply({ok:false},400);
+      ctx.waitUntil(recordStage(env,request,data.choice==='yes'?'consent_accept':'consent_decline',traffic(data.source,data.campaign,data.creative)));
+      return new Response(null,{status:204,headers:{'cache-control':'no-store'}});
     }
     if(path==='/api/measurement/pageview' && request.method==='POST'){
       if(!allowed(env)||url.origin!=='https://ofertismo.com.br'||request.headers.get('origin')!==url.origin)return reply({ok:false},403);
@@ -143,7 +200,7 @@ export default {
         while(true){const {value,done}=await reader.read();if(done)break;size+=value.byteLength;if(size>256){await reader.cancel();return reply({ok:false},400)}ticket+=decoder.decode(value,{stream:true});}
         ticket+=decoder.decode();
       }catch{return reply({ok:false},400)}
-      ctx.waitUntil(observeMeasurement(()=>dispatchMeasurement(request,env,ticket,'PageView'),'PageView'));
+      ctx.waitUntil(reportMeasurement(request,env,ticket,'PageView',pageDimensions(request)));
       return new Response(null,{status:204,headers:{'cache-control':'no-store'}});
     }
     if (path === '/privacidade' && request.method === 'GET') {
@@ -154,6 +211,7 @@ export default {
     }
     const stub = env.ROUTER_STATE.get(env.ROUTER_STATE.idFromName('ofertismo-main'));
     if (path === '/teste-convite' && request.method === 'GET') {
+      if(!isAuthorized(request,env))return reply({error:'Não encontrado.'},404);
       const preview = await stub.fetch('https://router.local/internal/current-invite');
       if (!preview.ok) return new Response('Nenhum convite disponível para testar agora.', {
         status: 503, headers: { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store' }
@@ -177,23 +235,36 @@ export default {
       return stub.fetch('https://router.local/internal/reset', { method: 'POST' });
     }
     const match = path.match(/^\/(?:entrar|go)(?:\/([a-z0-9-]{1,40}))?\/?$/);
-    if (match && request.method === 'GET') {
-      const source = cleanSource(match[1] || url.searchParams.get('origem') || 'direto');
-      const agent = request.headers.get('user-agent') || '';
-      if (/(bot|crawler|spider|preview|facebookexternalhit|curl|headless|slackbot)/i.test(agent)) {
-        return new Response('Visualização automatizada: acesso não contabilizado.', { status: 200, headers: { 'cache-control': 'no-store' } });
-      }
-      const result = await stub.fetch('https://router.local/internal/redirect', {
-        method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ source, campaign: url.searchParams.get('utm_campaign'), creative: url.searchParams.get('utm_content') })
+    if (match && ['GET','POST'].includes(request.method)) {
+      const source=cleanSource(match[1]||url.searchParams.get('origem')||'direto');
+      const post=request.method==='POST';
+      if(!eligibleRequest(request))return post?reply({ok:false},403):new Response('Visualização automatizada: acesso não contabilizado.',{status:200,headers:{'cache-control':'no-store'}});
+      if(post&&(url.origin!=='https://ofertismo.com.br'||request.headers.get('origin')!==url.origin||['cross-site','same-site'].includes(request.headers.get('sec-fetch-site'))))return reply({ok:false},403);
+      const data=post?await readSmallJson(request,2048):{};
+      if(post&&(!data||!validOperation(data.operation)))return reply({ok:false},400);
+      const operation=post?data.operation:url.searchParams.get('operation');
+      const dimensions=traffic(source,url.searchParams.get('utm_campaign'),url.searchParams.get('utm_content'));
+      const result=await stub.fetch('https://router.local/internal/redirect',{
+        method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({...dimensions,operation:validOperation(operation)?operation:null,consent:consentState(request)})
       });
       if (!result.ok) {
+        ctx.waitUntil(recordStage(env,request,'redirect_unavailable',dimensions));
         const msg = (await result.json()).error;
         const body = msg === 'no_groups' ? 'O grupo será disponibilizado em breve.' : 'Todos os grupos cadastrados atingiram o limite de acessos.';
-        return new Response(body, { status: 503, headers: { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store' } });
+        return post?reply({ok:false,error:body},503):new Response(body,{status:503,headers:{'content-type':'text/plain; charset=utf-8','cache-control':'no-store'}});
       }
-      const { url: target } = await result.json();
-      const ticket=url.searchParams.get('measurement_ticket');
-      if(ticket&&allowed(env))ctx.waitUntil(observeMeasurement(()=>dispatchMeasurement(request,env,ticket,'Lead'),'Lead'));
+      const {url:target,repeated}=await result.json();
+      if(!repeated)ctx.waitUntil(Promise.all([recordStage(env,request,'redirect_ok',dimensions),recordStage(env,request,'redirect_'+consentState(request),dimensions)]));
+      const ticket=post?data.ticket:url.searchParams.get('measurement_ticket');
+      let leadEventID=null;
+      if(ticket&&allowed(env)&&consentState(request)==='yes'){
+        const page=await verifyTicket(ticket,env);
+        if(page){
+          ctx.waitUntil(reportMeasurement(request,env,ticket,'Lead',dimensions));
+          if(post)leadEventID=page.id+'_Lead';
+        }
+      }
+      if(post)return reply({ok:true,url:target,leadEventID});
       return new Response(null,{status:302,headers:{location:target,'cache-control':'no-store','referrer-policy':'no-referrer'}});
     }
     return reply({ error: 'Rota não encontrada. Use /entrar/team, /entrar/meta ou /admin.' }, 404);
