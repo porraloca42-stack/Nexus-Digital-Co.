@@ -1,3 +1,4 @@
+import {CREATIVE_REGISTRY} from './campaigns.mjs';
 // V3 Premium — baseada no rascunho aprovado. Mantém copy e LinkRouter existentes.
 export const landingHtml = String.raw`<!doctype html>
 <html lang="pt-BR">
@@ -326,8 +327,10 @@ details p{margin:0;padding:0 21px 22px;color:#d5cbd0;line-height:1.6;font-size:1
  else if(['telegram','tg'].includes(origin))source='telegram';
  else if(['social','tiktok','youtube'].includes(origin))source='social';
  else if(origin)source='outro';
- var creative=(source==='meta'&&p.get('utm_campaign')==='oft_t03'&&['imagem_01','video_01'].includes(p.get('utm_content')))?p.get('utm_content'):'';
- document.querySelectorAll('.join-cta').forEach(function(a){a.href='/entrar/'+source+(creative?'?utm_campaign=oft_t03&utm_content='+creative:'')});
+ var registry=${JSON.stringify(CREATIVE_REGISTRY)},requestedCampaign=p.get('utm_campaign'),requestedCreative=p.get('utm_content');
+ var creative=(source==='meta'&&Object.prototype.hasOwnProperty.call(registry,requestedCampaign)&&registry[requestedCampaign].includes(requestedCreative))?requestedCreative:'';
+ var campaign=creative?requestedCampaign:'';
+ document.querySelectorAll('.join-cta').forEach(function(a){a.href='/entrar/'+source+(creative?'?utm_campaign='+encodeURIComponent(campaign)+'&utm_content='+encodeURIComponent(creative):'')});
  var sticky=document.getElementById('sticky'),heroCTA=document.getElementById('hero-cta'),artCTA=document.getElementById('v3-art-cta'),cookieNoticeHeight=0;
  function syncSticky(){var mobile=window.matchMedia('(max-width:640px)').matches,current=mobile?artCTA:heroCTA,rect=current.getBoundingClientRect();sticky.classList.toggle('active',rect.bottom<0||(mobile&&cookieNoticeHeight>0&&rect.bottom>window.innerHeight-cookieNoticeHeight))}
  window.addEventListener('scroll',syncSticky,{passive:true});window.addEventListener('resize',syncSticky);syncSticky();
@@ -345,7 +348,7 @@ details p{margin:0;padding:0 21px 22px;color:#d5cbd0;line-height:1.6;font-size:1
   cancelPageview();
   if(pageviewSent||!initialized||preference()!=='oft_measure=yes')return;
   pageviewSent=true;
-  var click=p.get('fbclid')||'',headers={};
+  var click=p.get('fbclid')||'',headers={'x-oft-source':source,'x-oft-campaign':campaign,'x-oft-creative':creative};
   if(/^[A-Za-z0-9_-]{1,512}$/.test(click))headers['x-oft-fbclid']=click;
   fetch('/api/measurement/pageview',{method:'POST',body:ticket,headers:headers,keepalive:true,credentials:'same-origin'}).catch(function(){});
  }
@@ -377,7 +380,7 @@ details p{margin:0;padding:0 21px 22px;color:#d5cbd0;line-height:1.6;font-size:1
   var choice=b.getAttribute('data-choice');
   document.cookie='oft_measure='+choice+'; Path=/; Max-Age=15552000; SameSite=Lax; Secure';
   preferences.hidden=true;syncCookieLayout();
-  fetch('/api/operational/choice',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({choice:choice,source:source,campaign:creative?'oft_t03':'',creative:creative}),credentials:'omit',keepalive:true}).catch(function(){});
+  fetch('/api/operational/choice',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({choice:choice,source:source,campaign:campaign,creative:creative}),credentials:'omit',keepalive:true}).catch(function(){});
   if(choice==='yes')initialize();else{cancelPageview();clearMeasurementTickets();if(window.fbq)fbq('consent','revoke');}
  }});
  var footer=document.querySelector('footer');
