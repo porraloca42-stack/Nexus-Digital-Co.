@@ -25,8 +25,12 @@ export async function dispatchMeasurement(request,env,ticket,name,fetchImpl=fetc
  if(name==='PageView'&&request.headers.get('origin')!==ORIGIN)return {sent:false,reason:'origin'};
  if(name==='Lead'){
   let ref;
-  try{ref=new URL(request.headers.get('referer')||'');}catch{return {sent:false,reason:'referer'};}
-  if(ref.origin!==ORIGIN||!['/','/inicio'].includes(ref.pathname))return {sent:false,reason:'referer'};
+  try{ref=new URL(request.headers.get('referer')||'');}catch{}
+  const direct=ref?.origin===ORIGIN&&['/','/inicio'].includes(ref.pathname);
+  // Some in-app browsers omit Referer. Browser-controlled fetch metadata
+  // can prove a same-origin document navigation, never a cross-site request.
+  const navigation=!ref&&request.method==='GET'&&request.headers.get('sec-fetch-site')==='same-origin'&&request.headers.get('sec-fetch-mode')==='navigate'&&request.headers.get('sec-fetch-dest')==='document';
+  if(!direct&&!navigation)return {sent:false,reason:'referer'};
  }
  const page=await verifyTicket(ticket,env);
  if(!page||!['PageView','Lead'].includes(name))return {sent:false,reason:'ticket'};
@@ -50,7 +54,9 @@ export async function dispatchMeasurement(request,env,ticket,name,fetchImpl=fetc
    if(ref.origin===ORIGIN&&ref.origin+ref.pathname===page.sourceUrl&&/^[A-Za-z0-9_-]{1,512}$/.test(click))fbc='fb.1.'+(page.issuedAt*1000)+'.'+click;
   }catch{}
  }
- return sendCapi({consent:true,name,eventId:page.id+'_'+name,eventTime:Math.floor(Date.now()/1000),sourceUrl:page.sourceUrl,userAgent,clientIp:request.headers.get('cf-connecting-ip')||'',fbp:cookie(request,'_fbp'),fbc},env,fetchImpl);
+ const fbp=cookie(request,'_fbp');
+ const result=await sendCapi({consent:true,name,eventId:page.id+'_'+name,eventTime:Math.floor(Date.now()/1000),sourceUrl:page.sourceUrl,userAgent,clientIp:request.headers.get('cf-connecting-ip')||'',fbp,fbc},env,fetchImpl);
+ return {...result,match_fbp:/^fb\.1\.\d{10,16}\.\d{1,30}$/.test(fbp),match_fbc:/^fb\.1\.\d{10,16}\.[A-Za-z0-9_-]{1,512}$/.test(fbc)};
 }
 
 // Minimal delivery telemetry: no event IDs, URLs, cookies, IP, UA, token, or raw errors.
@@ -61,6 +67,9 @@ export async function observeMeasurement(operation,name,logger=console){
  const reasons=['disabled','invalid_or_no_consent','no_consent_or_origin','origin','referer','ticket','agent','duplicate_or_unavailable','transport_error','graph_rejected','internal_error'];
  const record={component:'oft_capi',event:name,outcome:result?.sent===true?'accepted':'not_sent'};
  if(reasons.includes(result?.reason))record.reason=result.reason;
+ if(typeof result?.match_fbp==='boolean')record.match_fbp=result.match_fbp;
+ if(typeof result?.match_fbc==='boolean')record.match_fbc=result.match_fbc;
+ if(result?.attempts===2)record.attempts=2;
  if(Number.isInteger(result?.status)&&result.status>=100&&result.status<=599)record.http_status=result.status;
  for(const field of ['graph_error_code','graph_error_subcode'])if(Number.isSafeInteger(result?.[field]))record[field]=result[field];
  // Avoid recording unconsented or ineligible visitor activity; only actual delivery failures/successes.
