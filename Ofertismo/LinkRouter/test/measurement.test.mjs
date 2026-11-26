@@ -100,3 +100,12 @@ test('consented PageView recovers real click from header even without referer',a
  const fake=async(_,init)=>{payload=JSON.parse(init.body);return new Response('{"events_received":1}')};
  assert.equal((await dispatchMeasurement(req,e,t,'PageView',fake)).sent,true);assert.equal(payload.data[0].user_data.fbc,'fb.1.'+(page.issuedAt*1000)+'.REAL_CLICK_FIXTURE');
 });
+
+test('Lead without Referer accepts only verified same-origin document navigation and signed ticket',async()=>{
+ const t=await issueTicket('/',env);let calls=0;
+ const e={...env,ROUTER_STATE:{idFromName:s=>s,get:()=>({fetch:async()=>new Response('{}')})}};
+ const headers={'sec-fetch-site':'same-origin','sec-fetch-mode':'navigate','sec-fetch-dest':'document',cookie:'oft_measure=yes','user-agent':'Mozilla/5.0'};
+ const fake=async()=>{calls++;return new Response('{"events_received":1}')};
+ for(const h of [{...headers,'sec-fetch-site':'cross-site'},{...headers,referer:'https://evil.example/'},{...headers,'sec-fetch-mode':'cors'}])assert.equal((await dispatchMeasurement(new Request('https://ofertismo.com.br/entrar/meta',{headers:h}),e,t,'Lead',fake)).sent,false);
+ assert.equal((await dispatchMeasurement(new Request('https://ofertismo.com.br/entrar/meta',{headers}),e,t,'Lead',fake)).sent,true);assert.equal(calls,1);
+});
