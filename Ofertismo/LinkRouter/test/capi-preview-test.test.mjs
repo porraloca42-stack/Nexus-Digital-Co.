@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {handleCapiPreviewTest,CAPI_PREVIEW_PATH} from '../src/capi-preview-test.mjs';
+import {handleCapiPreviewTest,CAPI_PREVIEW_PATH,CAPI_DEDUP_PATH} from '../src/capi-preview-test.mjs';
 const host='https://ofertismo-capi-foundation-20261125-ofertismo-link-router.porraloca42.workers.dev';
 const id='a3abf021-9975-4f8a-8722-3f5c5949bd10';
 const auth='a'.repeat(48),token='b'.repeat(48);
@@ -60,4 +60,25 @@ test('diagnostic cannot emit standard conversion events or run without trusted I
  for(const event_name of ['Lead','PageView','Purchase'])assert.equal((await handleCapiPreviewTest(req({data:{consent:true,event_name,test_id:id}}),env,fake)).status,400);
  assert.equal((await handleCapiPreviewTest(req({ip:''}),env,fake)).status,400);
  assert.equal(calls.length,0);
+});
+
+test('paired diagnostic page is isolated, disabled by default and posts only with same origin',async()=>{
+ const {env,fake,calls}=setup();
+ const url=host+CAPI_DEDUP_PATH;
+ const get=new Request(url);
+ assert.equal((await handleCapiPreviewTest(get,{...env,META_CAPI_PREVIEW_ENABLED:'false'},fake)).status,404);
+ assert.equal((await handleCapiPreviewTest(new Request('https://ofertismo.com.br'+CAPI_DEDUP_PATH),env,fake)).status,404);
+ const page=await handleCapiPreviewTest(get,env,fake);
+ assert.equal(page.status,200);
+ const html=await page.text();
+ assert.match(html,/trackCustom','OfertismoCapiDiagnostic'/);
+ assert.match(html,/eventID:result.event_id/);
+ assert.ok(!html.includes(auth)&&!html.includes(token));
+ assert.ok(!html.includes('<script src='));
+ assert.equal((await handleCapiPreviewTest(req({url}),env,fake)).status,403);
+ const post=req({url});post.headers.set('origin',host);
+ const response=await handleCapiPreviewTest(post,env,fake);
+ assert.equal(response.status,200);
+ assert.equal(calls.length,1);
+ assert.equal(calls[0].body.data[0].event_source_url,url);
 });

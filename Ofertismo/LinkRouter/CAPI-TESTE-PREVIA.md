@@ -17,3 +17,6 @@ Enviar via cliente HTTPS autorizado, com header Authorization: Bearer [secret de
 Após comprovar transporte: preparar teste pareado browser + server na ferramenta Eventos de teste da Meta, com ID compartilhado. Não liberar Pixel real numa prévia pública nem alegar dedup antes da evidência. Desabilitar flag e remover secrets ao concluir. **Remover o harness e sua importação antes de merge em produção.** Alterações de dataset T03 somente após validação e autorização.
 
 Fontes: https://developers.facebook.com/docs/marketing-api/conversions-api/parameters/v25.0/ e https://developers.cloudflare.com/workers/previews/configuration/
+
+## Diagnóstico pareado (somente prévia)
+GET /__capi-test/dedup, flag false por padrão. Proprietário abre a URL via Eventos de teste do dataset novo, fornece chave temporária localmente e confirma consentimento. POST exige Origin da própria prévia, chave correta e ID único; somente após HTTP200/events_received=1, carrega Pixel e chama trackCustom OfertismoCapiDiagnostic com eventID idêntico. Não armazena chave, não envia Lead, não redireciona grupos. Resposta do navegador é chamada emitida, não prova recepção/dedup; conferir os dois canais e o descarte da duplicata na Meta. Remover página, rota, importação e secrets antes de produção. Esta prova é do mecanismo de dedup, não substitui validação do fluxo real PageView/Lead.

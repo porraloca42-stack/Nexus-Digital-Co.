@@ -1,5 +1,7 @@
+import {dedupPage} from './capi-dedup-page.mjs';
 // Transport-only harness. Remove before production merge. Never use production credentials.
 export const CAPI_PREVIEW_PATH='/__capi-test/transport';
+export const CAPI_DEDUP_PATH='/__capi-test/dedup';
 const HOST='ofertismo-capi-foundation-20261125-ofertismo-link-router.porraloca42.workers.dev';
 const DATASET='29104010142601422';
 const DIAGNOSTIC='OfertismoCapiDiagnostic';
@@ -27,11 +29,13 @@ async function readLimited(request){
 }
 export async function handleCapiPreviewTest(request,env,fetchImpl=fetch){
   const url=new URL(request.url);
-  if(url.protocol!=='https:'||url.hostname!==HOST||url.port||url.pathname!==CAPI_PREVIEW_PATH||
+  if(url.protocol!=='https:'||url.hostname!==HOST||url.port||![CAPI_PREVIEW_PATH,CAPI_DEDUP_PATH].includes(url.pathname)||
      env.META_CAPI_PREVIEW_ENABLED!=='true'||!secret(env.META_CAPI_PREVIEW_AUTH)||
      !secret(env.META_CAPI_PREVIEW_TOKEN)||!/^TEST[A-Za-z0-9_-]{1,64}$/.test(env.META_CAPI_PREVIEW_TEST_EVENT_CODE||'')||
      env.META_CAPI_PREVIEW_AUTH===env.ADMIN_TOKEN||env.META_CAPI_PREVIEW_AUTH===env.META_CAPI_PREVIEW_TOKEN)
     return json({ok:false},404);
+  if(url.pathname===CAPI_DEDUP_PATH&&request.method==='GET')return dedupPage();
+  if(url.pathname===CAPI_DEDUP_PATH&&request.method==='POST'&&request.headers.get('origin')!==url.origin)return json({ok:false,reason:'origin'},403);
   if(request.method!=='POST')return json({ok:false},405);
   if(!equal(request.headers.get('authorization')||'','Bearer '+env.META_CAPI_PREVIEW_AUTH))return json({ok:false},401);
   if(!/^application\/json(?:;|$)/i.test(request.headers.get('content-type')||''))return json({ok:false},415);
@@ -53,7 +57,7 @@ export async function handleCapiPreviewTest(request,env,fetchImpl=fetch){
   }catch{return json({ok:false,reason:'claim_failed'},503);}
   const body={test_event_code:env.META_CAPI_PREVIEW_TEST_EVENT_CODE,data:[{
     event_name:data.event_name,event_id:id,event_time:Math.floor(Date.now()/1000),
-    action_source:'website',event_source_url:url.origin+CAPI_PREVIEW_PATH,
+    action_source:'website',event_source_url:url.origin+url.pathname,
     user_data:{client_user_agent:ua.slice(0,1024),client_ip_address:ip}
   }]};
   try{
