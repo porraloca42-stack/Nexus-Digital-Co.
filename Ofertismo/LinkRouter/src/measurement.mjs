@@ -36,6 +36,13 @@ export async function dispatchMeasurement(request,env,ticket,name,fetchImpl=fetc
  const claim=await stub.fetch('https://router.local/internal/measurement-claim',{method:'POST',body:JSON.stringify({name})});
  if(!claim.ok)return {sent:false,reason:'duplicate_or_unavailable'};
  let fbc=cookie(request,'_fbc');
+ // The browser only supplies this first-party header after an explicit opt-in.
+ // It is never logged or retained; use the timestamp of the actual signed landing visit.
+ if(!/^fb\.1\.\d{10,16}\.[A-Za-z0-9_-]{1,512}$/.test(fbc))fbc='';
+ if(!fbc&&name==='PageView'&&request.method==='POST'){
+  const click=request.headers.get('x-oft-fbclid')||'';
+  if(/^[A-Za-z0-9_-]{1,512}$/.test(click))fbc='fb.1.'+(page.issuedAt*1000)+'.'+click;
+ }
  if(!fbc){
   try{
    const ref=new URL(request.headers.get('referer')||'');
