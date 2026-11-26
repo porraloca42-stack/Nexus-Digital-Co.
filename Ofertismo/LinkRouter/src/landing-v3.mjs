@@ -327,8 +327,8 @@ details p{margin:0;padding:0 21px 22px;color:#d5cbd0;line-height:1.6;font-size:1
  else if(['social','tiktok','youtube'].includes(origin))source='social';
  var creative=(source==='meta'&&p.get('utm_campaign')==='oft_t03'&&['imagem_01','video_01'].includes(p.get('utm_content')))?p.get('utm_content'):'';
  document.querySelectorAll('.join-cta').forEach(function(a){a.href='/entrar/'+source+(creative?'?utm_campaign=oft_t03&utm_content='+creative:'')});
- var sticky=document.getElementById('sticky'),heroCTA=document.getElementById('hero-cta'),artCTA=document.getElementById('v3-art-cta');
- function syncSticky(){var current=window.matchMedia('(max-width:640px)').matches?artCTA:heroCTA;sticky.classList.toggle('active',current.getBoundingClientRect().bottom<0)}
+ var sticky=document.getElementById('sticky'),heroCTA=document.getElementById('hero-cta'),artCTA=document.getElementById('v3-art-cta'),cookieNoticeHeight=0;
+ function syncSticky(){var mobile=window.matchMedia('(max-width:640px)').matches,current=mobile?artCTA:heroCTA,rect=current.getBoundingClientRect();sticky.classList.toggle('active',rect.bottom<0||(mobile&&cookieNoticeHeight>0&&rect.bottom>window.innerHeight-cookieNoticeHeight))}
  window.addEventListener('scroll',syncSticky,{passive:true});window.addEventListener('resize',syncSticky);syncSticky();
  if(location.hostname==='localhost')return;
  var ticket=__OFT_MEASUREMENT_TICKET__;
@@ -367,19 +367,30 @@ details p{margin:0;padding:0 21px 22px;color:#d5cbd0;line-height:1.6;font-size:1
  }
  var preferences=document.createElement('section');
  preferences.setAttribute('aria-label','Preferências de privacidade');
- preferences.style.cssText='padding:12px 16px;background:#18181b;color:#fff;font:13px/1.5 system-ui;text-align:center';
+ preferences.id='cookie-notice';
+ preferences.style.cssText='position:fixed;bottom:0;left:0;right:0;z-index:60;padding:8px 12px calc(8px + env(safe-area-inset-bottom,0px));background:#18181b;color:#fff;font:13px/1.35 system-ui;text-align:center;border-top:1px solid #555;box-shadow:0 -3px 16px #0005;max-height:40vh;overflow-y:auto;overscroll-behavior:contain';
  preferences.innerHTML='<p style="margin:0 0 4px"><strong>Nós usamos cookies 🍪</strong></p><p style="margin:0 0 8px">Utilizamos cookies para medir nossos anúncios e oferecer publicidade mais relevante. <a style="color:#ffd53f" href="/privacidade">Política de Privacidade</a></p><button type="button" data-choice="yes">Aceitar cookies</button> <button type="button" data-choice="no">Somente necessários</button>';
- preferences.querySelectorAll('button').forEach(function(b){b.style.cssText='padding:7px 15px;border:1px solid #777;border-radius:6px;background:#25252b;color:white;font:inherit;cursor:pointer';b.onclick=function(){
+ preferences.querySelectorAll('button').forEach(function(b){b.style.cssText='padding:7px 10px;min-height:36px;margin:2px;border:1px solid #777;border-radius:6px;background:#25252b;color:white;font:inherit;cursor:pointer';b.onclick=function(){
   var choice=b.getAttribute('data-choice');
   document.cookie='oft_measure='+choice+'; Path=/; Max-Age=15552000; SameSite=Lax; Secure';
-  preferences.hidden=true;
+  preferences.hidden=true;syncCookieLayout();
   if(choice==='yes')initialize();else{cancelPageview();clearMeasurementTickets();if(window.fbq)fbq('consent','revoke');}
  }});
  var footer=document.querySelector('footer');
  footer.before(preferences);preferences.hidden=!!preference();
- // Não sobrepor o CTA nem impedir o acesso; opção no fluxo normal da página.
+ // Aviso fixo, sem modal. Reserva espaço e eleva o CTA flutuante enquanto visível.
+ function syncCookieLayout(){
+  cookieNoticeHeight=preferences.hidden?0:Math.ceil(preferences.getBoundingClientRect().height||0);
+  sticky.style.bottom=cookieNoticeHeight+'px';sticky.style.paddingBottom=cookieNoticeHeight?'10px':'';
+  footer.style.marginBottom=cookieNoticeHeight+'px';
+  syncSticky();
+ }
+ window.addEventListener('resize',syncCookieLayout);
+ if(typeof window.ResizeObserver==='function')new window.ResizeObserver(syncCookieLayout).observe(preferences);
+ if(window.visualViewport)window.visualViewport.addEventListener('resize',syncCookieLayout);
+ syncCookieLayout();
  var manage=document.createElement('button');manage.type='button';manage.textContent='Preferências de cookies';manage.style.cssText='background:none;border:0;text-decoration:underline;color:inherit;cursor:pointer;font:inherit';
- manage.onclick=function(){preferences.hidden=false;preferences.scrollIntoView({block:'nearest'})};document.querySelector('.footer-inner').appendChild(manage);
+ manage.onclick=function(){preferences.hidden=false;syncCookieLayout()};document.querySelector('.footer-inner').appendChild(manage);
  initialize();
  document.querySelectorAll('.join-cta').forEach(function(a){a.addEventListener('click',function(){
   if(preference()!=='oft_measure=yes'||!initialized){clearMeasurementTickets();return;}
