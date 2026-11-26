@@ -369,7 +369,7 @@ details p{margin:0;padding:0 21px 22px;color:#d5cbd0;line-height:1.6;font-size:1
  preferences.setAttribute('aria-label','Preferências de privacidade');
  preferences.id='cookie-notice';
  preferences.style.cssText='position:fixed;bottom:0;left:0;right:0;z-index:60;padding:8px 12px calc(8px + env(safe-area-inset-bottom,0px));background:#18181b;color:#fff;font:13px/1.35 system-ui;text-align:center;border-top:1px solid #555;box-shadow:0 -3px 16px #0005;max-height:40vh;overflow-y:auto;overscroll-behavior:contain';
- preferences.innerHTML='<p style="margin:0 0 4px"><strong>Nós usamos cookies 🍪</strong></p><p style="margin:0 0 8px">Utilizamos cookies para medir nossos anúncios e oferecer publicidade mais relevante. <a style="color:#ffd53f" href="/privacidade">Política de Privacidade</a></p><button type="button" data-choice="yes">Aceitar cookies</button> <button type="button" data-choice="no">Somente necessários</button>';
+ preferences.innerHTML='<p style="margin:0 0 4px"><strong>Nós usamos cookies 🍪</strong></p><p style="margin:0 0 8px">Utilizamos cookies para oferecer uma experiência mais personalizada e conteúdos relevantes para você. <a style="color:#ffd53f" href="/privacidade">Política de Privacidade</a></p><button type="button" data-choice="yes">Aceitar cookies</button> <button type="button" data-choice="no">Somente necessários</button>';
  preferences.querySelectorAll('button').forEach(function(b){b.style.cssText='padding:7px 10px;min-height:36px;margin:2px;border:1px solid #777;border-radius:6px;background:#25252b;color:white;font:inherit;cursor:pointer';b.onclick=function(){
   var choice=b.getAttribute('data-choice');
   document.cookie='oft_measure='+choice+'; Path=/; Max-Age=15552000; SameSite=Lax; Secure';
