@@ -334,21 +334,36 @@ details p{margin:0;padding:0 21px 22px;color:#d5cbd0;line-height:1.6;font-size:1
  var ticket=__OFT_MEASUREMENT_TICKET__;
  var preview=typeof ticket==='string'&&ticket.endsWith('.preview')&&location.hostname.endsWith('-ofertismo-link-router.porraloca42.workers.dev');
  if(!ticket||(!preview&&location.origin!=='https://ofertismo.com.br'))return;
- var pageId=ticket.split('.')[0], initialized=false, leadSent=false;
+ var pageId=ticket.split('.')[0], initialized=false, leadSent=false, pageviewSent=false, pageviewTimer=null;
  function preference(){return document.cookie.split(';').map(function(s){return s.trim()}).find(function(s){return s.indexOf('oft_measure=')===0})||''}
  function clearMeasurementTickets(){
   document.querySelectorAll('.join-cta').forEach(function(a){var target=new URL(a.href,location.origin);if(target.searchParams.has('measurement_ticket')){target.searchParams.delete('measurement_ticket');a.href=target.pathname+target.search}});
  }
+ function cancelPageview(){if(pageviewTimer!==null){clearTimeout(pageviewTimer);pageviewTimer=null;}}
+ function sendPageview(){
+  cancelPageview();
+  if(pageviewSent||!initialized||preference()!=='oft_measure=yes')return;
+  pageviewSent=true;
+  fetch('/api/measurement/pageview',{method:'POST',body:ticket,keepalive:true,credentials:'same-origin'}).catch(function(){});
+ }
+ function waitForFbp(attempt){
+  cancelPageview();
+  if(pageviewSent||!initialized||preference()!=='oft_measure=yes')return;
+  var fbp=document.cookie.split(';').map(function(s){return s.trim()}).find(function(s){return s.indexOf('_fbp=')===0})||'';
+  if(/^_fbp=fb[.]1[.][0-9]{10,16}[.][0-9]{1,30}$/.test(fbp)||attempt>=12){sendPageview();return;}
+  pageviewTimer=setTimeout(function(){pageviewTimer=null;waitForFbp(attempt+1)},100);
+ }
+ window.addEventListener('pagehide',sendPageview);
  function initialize(){
   if(preference()!=='oft_measure=yes')return;
-  if(initialized){if(window.fbq)fbq('consent','grant');return;}
+  if(initialized){if(window.fbq)fbq('consent','grant');waitForFbp(0);return;}
   initialized=true;
   if(preview){window.fbq=function(){(window.__oftPreviewEvents=window.__oftPreviewEvents||[]).push(Array.from(arguments))};}
   !function(f,b,e,v,n,t,s){if(f.fbq)return;n=f.fbq=function(){n.callMethod?n.callMethod.apply(n,arguments):n.queue.push(arguments)};if(!f._fbq)f._fbq=n;n.push=n;n.loaded=!0;n.version='2.0';n.queue=[];t=b.createElement(e);t.async=!0;t.src=v;s=b.getElementsByTagName(e)[0];s.parentNode.insertBefore(t,s)}(window,document,'script','https://connect.facebook.net/en_US/fbevents.js');
   fbq('set','autoConfig',false,'29104010142601422');
   fbq('init','29104010142601422');fbq('consent','grant');
   fbq('track','PageView',{},{eventID:pageId+'_PageView'});
-  fetch('/api/measurement/pageview',{method:'POST',body:ticket,keepalive:true,credentials:'same-origin'}).catch(function(){});
+  waitForFbp(0);
  }
  var preferences=document.createElement('section');
  preferences.setAttribute('aria-label','Preferências de privacidade');
@@ -358,7 +373,7 @@ details p{margin:0;padding:0 21px 22px;color:#d5cbd0;line-height:1.6;font-size:1
   var choice=b.getAttribute('data-choice');
   document.cookie='oft_measure='+choice+'; Path=/; Max-Age=15552000; SameSite=Lax; Secure';
   preferences.hidden=true;
-  if(choice==='yes')initialize();else{clearMeasurementTickets();if(window.fbq)fbq('consent','revoke');}
+  if(choice==='yes')initialize();else{cancelPageview();clearMeasurementTickets();if(window.fbq)fbq('consent','revoke');}
  }});
  var footer=document.querySelector('footer');
  footer.before(preferences);preferences.hidden=!!preference();
@@ -368,6 +383,7 @@ details p{margin:0;padding:0 21px 22px;color:#d5cbd0;line-height:1.6;font-size:1
  initialize();
  document.querySelectorAll('.join-cta').forEach(function(a){a.addEventListener('click',function(){
   if(preference()!=='oft_measure=yes'||!initialized){clearMeasurementTickets();return;}
+  sendPageview(); // flush pending PageView without delaying navigation
   if(!leadSent){leadSent=true;if(window.fbq)fbq('track','Lead',{},{eventID:pageId+'_Lead'})}
   var target=new URL(a.href,location.origin);target.searchParams.set('measurement_ticket',ticket);a.href=target.pathname+target.search;
  })});
