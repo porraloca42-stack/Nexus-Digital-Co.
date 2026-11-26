@@ -5,16 +5,16 @@ import {landingHtml} from '../src/landing-v3.mjs';
 import {issueTicket,dispatchMeasurement} from '../src/measurement.mjs';
 const env={META_CAPI_ENABLED:'true',META_CAPI_TOKEN:'mock-token',META_MEASUREMENT_SIGNING_KEY:'mock-independent-signing-key-for-testing'};
 function browser(ticket,initialCookie='',mobile=false){
- let cookie=initialCookie,requests=[],scripts=[],timers=new Map(),timerId=0,events={},notice;
+ let cookie=initialCookie,requests=[],choices=[],scripts=[],timers=new Map(),timerId=0,events={},notice;
  function element(){return {hidden:false,href:'',style:{},attrs:{},listeners:{},classList:{active:false,toggle(k,v){this[k]=v}},setAttribute(k,v){this.attrs[k]=v},getAttribute(k){return this.attrs[k]},addEventListener(k,f){(this.listeners[k]??=[]).push(f)},querySelectorAll(){return []},getBoundingClientRect(){return this.rect||{bottom:50,height:0}},before(){},appendChild(){},scrollIntoView(){}}}
  const buttons=[element(),element()];buttons[0].attrs['data-choice']='yes';buttons[1].attrs['data-choice']='no';
  const ctas=Array.from({length:4},element),elements=new Map(),footer=element();
  const document={getElementById(id){if(!elements.has(id))elements.set(id,element());return elements.get(id)},querySelectorAll(s){return s==='.join-cta'?ctas:[]},querySelector(){return footer},createElement(tag){const e=element();if(tag==='section'){notice=e;e.rect={height:120,bottom:600};e.querySelectorAll=()=>buttons;}if(tag==='script')scripts.push(e);return e},getElementsByTagName(){return [{parentNode:{insertBefore(){}}}]},addEventListener(){},get cookie(){return cookie},set cookie(v){const pair=v.split(';')[0],key=pair.split('=')[0];cookie=cookie.split(';').map(s=>s.trim()).filter(s=>s&&!s.startsWith(key+'=')).concat(pair).join('; ')}};
- const context={document,location:new URL('https://ofertismo.com.br/?origem=meta&utm_campaign=oft_t03&utm_content=video_01'),URL,URLSearchParams,Array,fetch:(path,init)=>{requests.push({path,init});return Promise.resolve({})},innerHeight:600,matchMedia:()=>({matches:mobile}),addEventListener(k,f){(events[k]??=[]).push(f)},setTimeout(f){timers.set(++timerId,f);return timerId},clearTimeout(id){timers.delete(id)}};
+ const context={document,location:new URL('https://ofertismo.com.br/?origem=meta&utm_campaign=oft_t03&utm_content=video_01'),URL,URLSearchParams,Array,fetch:(path,init)=>{(path==='/api/operational/choice'?choices:requests).push({path,init});return Promise.resolve({})},innerHeight:600,matchMedia:()=>({matches:mobile}),addEventListener(k,f){(events[k]??=[]).push(f)},setTimeout(f){timers.set(++timerId,f);return timerId},clearTimeout(id){timers.delete(id)}};
  context.window=context;vm.createContext(context);
  const script=landingHtml.slice(landingHtml.lastIndexOf('<script>')+8,landingHtml.lastIndexOf('</script>')).replace('__OFT_MEASUREMENT_TICKET__',JSON.stringify(ticket));
  vm.runInContext(script,context);
- return {context,buttons,ctas,requests,scripts,timers,notice,footer,elements,runTimer(){const e=timers.entries().next();if(!e.done){timers.delete(e.value[0]);e.value[1]()}},fire(k){for(const f of events[k]??[])f()},click(i=0){for(const f of ctas[i].listeners.click??[])f()}};
+ return {context,buttons,ctas,requests,choices,scripts,timers,notice,footer,elements,runTimer(){const e=timers.entries().next();if(!e.done){timers.delete(e.value[0]);e.value[1]()}},fire(k){for(const f of events[k]??[])f()},click(i=0){for(const f of ctas[i].listeners.click??[])f()}};
 }
 test('real landing script and server payload share PageView/Lead IDs without external requests',async()=>{
  const ticket=await issueTicket('/',env),b=browser(ticket);
@@ -89,4 +89,8 @@ test('fixed cookie notice reserves room, keeps group CTA usable and restores sti
  const returned=browser('test-ticket','oft_measure=no',true);
  assert.equal(returned.notice.hidden,true);
  assert.equal(returned.elements.get('sticky').style.bottom,'0px');
+});
+
+test('explicit choices are counted separately with no cookies or identifiers, even when ticket is absent',()=>{
+ const b=browser('');b.buttons[1].onclick();assert.equal(b.requests.length,0);assert.equal(b.choices.length,1);assert.equal(b.choices[0].init.credentials,'omit');assert.deepEqual(JSON.parse(b.choices[0].init.body),{choice:'no',source:'meta',campaign:'oft_t03',creative:'video_01'});assert.equal(b.context.fbq,undefined);
 });
