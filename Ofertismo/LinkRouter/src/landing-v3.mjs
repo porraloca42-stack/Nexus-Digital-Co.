@@ -325,6 +325,7 @@ details p{margin:0;padding:0 21px 22px;color:#d5cbd0;line-height:1.6;font-size:1
  else if(['team','teamlanders','team-landers'].includes(origin))source='team';
  else if(['telegram','tg'].includes(origin))source='telegram';
  else if(['social','tiktok','youtube'].includes(origin))source='social';
+ else if(origin)source='outro';
  var creative=(source==='meta'&&p.get('utm_campaign')==='oft_t03'&&['imagem_01','video_01'].includes(p.get('utm_content')))?p.get('utm_content'):'';
  document.querySelectorAll('.join-cta').forEach(function(a){a.href='/entrar/'+source+(creative?'?utm_campaign=oft_t03&utm_content='+creative:'')});
  var sticky=document.getElementById('sticky'),heroCTA=document.getElementById('hero-cta'),artCTA=document.getElementById('v3-art-cta'),cookieNoticeHeight=0;
@@ -333,9 +334,9 @@ details p{margin:0;padding:0 21px 22px;color:#d5cbd0;line-height:1.6;font-size:1
  if(location.hostname==='localhost')return;
  var ticket=__OFT_MEASUREMENT_TICKET__;
  var preview=typeof ticket==='string'&&ticket.endsWith('.preview')&&location.hostname.endsWith('-ofertismo-link-router.porraloca42.workers.dev');
- if(!ticket||(!preview&&location.origin!=='https://ofertismo.com.br'))return;
- var pageId=ticket.split('.')[0], initialized=false, leadSent=false, pageviewSent=false, pageviewTimer=null;
- function preference(){return document.cookie.split(';').map(function(s){return s.trim()}).find(function(s){return s.indexOf('oft_measure=')===0})||''}
+ if(!preview&&location.origin!=='https://ofertismo.com.br')return;
+ var pageId=ticket?ticket.split('.')[0]:'', initialized=false, leadSent=false, pageviewSent=false, pageviewTimer=null;
+ function preference(){return document.cookie.split(';').map(function(s){return s.trim()}).find(function(s){return s==='oft_measure=yes'||s==='oft_measure=no'})||''}
  function clearMeasurementTickets(){
   document.querySelectorAll('.join-cta').forEach(function(a){var target=new URL(a.href,location.origin);if(target.searchParams.has('measurement_ticket')){target.searchParams.delete('measurement_ticket');a.href=target.pathname+target.search}});
  }
@@ -344,7 +345,9 @@ details p{margin:0;padding:0 21px 22px;color:#d5cbd0;line-height:1.6;font-size:1
   cancelPageview();
   if(pageviewSent||!initialized||preference()!=='oft_measure=yes')return;
   pageviewSent=true;
-  fetch('/api/measurement/pageview',{method:'POST',body:ticket,keepalive:true,credentials:'same-origin'}).catch(function(){});
+  var click=p.get('fbclid')||'',headers={};
+  if(/^[A-Za-z0-9_-]{1,512}$/.test(click))headers['x-oft-fbclid']=click;
+  fetch('/api/measurement/pageview',{method:'POST',body:ticket,headers:headers,keepalive:true,credentials:'same-origin'}).catch(function(){});
  }
  function waitForFbp(attempt){
   cancelPageview();
@@ -355,7 +358,7 @@ details p{margin:0;padding:0 21px 22px;color:#d5cbd0;line-height:1.6;font-size:1
  }
  window.addEventListener('pagehide',sendPageview);
  function initialize(){
-  if(preference()!=='oft_measure=yes')return;
+  if(!ticket||preference()!=='oft_measure=yes')return;
   if(initialized){if(window.fbq)fbq('consent','grant');waitForFbp(0);return;}
   initialized=true;
   if(preview){window.fbq=function(){(window.__oftPreviewEvents=window.__oftPreviewEvents||[]).push(Array.from(arguments))};}
@@ -369,11 +372,12 @@ details p{margin:0;padding:0 21px 22px;color:#d5cbd0;line-height:1.6;font-size:1
  preferences.setAttribute('aria-label','Preferências de privacidade');
  preferences.id='cookie-notice';
  preferences.style.cssText='position:fixed;bottom:0;left:0;right:0;z-index:60;padding:8px 12px calc(8px + env(safe-area-inset-bottom,0px));background:#18181b;color:#fff;font:13px/1.35 system-ui;text-align:center;border-top:1px solid #555;box-shadow:0 -3px 16px #0005;max-height:40vh;overflow-y:auto;overscroll-behavior:contain';
- preferences.innerHTML='<p style="margin:0 0 4px"><strong>Nós usamos cookies 🍪</strong></p><p style="margin:0 0 8px">Utilizamos cookies para oferecer uma experiência mais personalizada e conteúdos relevantes para você. <a style="color:#ffd53f" href="/privacidade">Política de Privacidade</a></p><button type="button" data-choice="yes">Aceitar cookies</button> <button type="button" data-choice="no">Somente necessários</button>';
+ preferences.innerHTML='<p style="margin:0 0 4px"><strong>Nós usamos cookies 🍪</strong></p><p style="margin:0 0 8px">Usamos cookies opcionais para medir nossos anúncios e oferecer publicidade mais relevante. Você pode entrar no grupo sem aceitá-los. <a style="color:#ffd53f" href="/privacidade">Política de Privacidade</a></p><button type="button" data-choice="yes">Aceitar cookies</button> <button type="button" data-choice="no">Somente necessários</button>';
  preferences.querySelectorAll('button').forEach(function(b){b.style.cssText='padding:7px 10px;min-height:36px;margin:2px;border:1px solid #777;border-radius:6px;background:#25252b;color:white;font:inherit;cursor:pointer';b.onclick=function(){
   var choice=b.getAttribute('data-choice');
   document.cookie='oft_measure='+choice+'; Path=/; Max-Age=15552000; SameSite=Lax; Secure';
   preferences.hidden=true;syncCookieLayout();
+  fetch('/api/operational/choice',{method:'POST',headers:{'content-type':'application/json'},body:JSON.stringify({choice:choice,source:source,campaign:creative?'oft_t03':'',creative:creative}),credentials:'omit',keepalive:true}).catch(function(){});
   if(choice==='yes')initialize();else{cancelPageview();clearMeasurementTickets();if(window.fbq)fbq('consent','revoke');}
  }});
  var footer=document.querySelector('footer');
