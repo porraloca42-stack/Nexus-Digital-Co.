@@ -3,6 +3,9 @@
 const PIXEL_ID = '29104010142601422';
 const ENDPOINT = 'https://graph.facebook.com/v25.0/' + PIXEL_ID + '/events';
 const EVENTS = new Set(['PageView','Lead']);
+// Preserve the actual cookie domain index; .com.br cookies can use fb.2.
+export const validFbp=value=>typeof value==='string'&&/^fb\.\d{1,3}\.\d{10,16}\.\d{1,30}$/.test(value);
+export const validFbc=value=>typeof value==='string'&&/^fb\.\d{1,3}\.\d{10,16}\.[A-Za-z0-9_-]{1,512}$/.test(value);
 export function buildEvent(input) {
   if (input.consent !== true || !EVENTS.has(input.name)) return null;
   if (!/^[a-zA-Z0-9_-]{16,80}$/.test(input.eventId || '')) return null;
@@ -13,8 +16,8 @@ export function buildEvent(input) {
   if (typeof input.userAgent !== 'string' || !input.userAgent.trim()) return null;
   // Não enviar URL com parâmetros arbitrários ou dados pessoais.
   const user_data = {client_user_agent:input.userAgent.slice(0,1024)};
-  if (typeof input.fbp === 'string' && /^fb\.1\.\d{10,16}\.\d{1,30}$/.test(input.fbp)) user_data.fbp=input.fbp;
-  if (typeof input.fbc === 'string' && /^fb\.1\.\d{10,16}\.[A-Za-z0-9_-]{1,512}$/.test(input.fbc)) user_data.fbc=input.fbc;
+  if (validFbp(input.fbp)) user_data.fbp=input.fbp;
+  if (validFbc(input.fbc)) user_data.fbc=input.fbc;
   if (typeof input.clientIp === 'string' && /^[0-9a-fA-F:.]{3,45}$/.test(input.clientIp)) user_data.client_ip_address=input.clientIp;
   // IDs fornecidos apenas por contexto de evento válido. Nunca inventar cookie/fbclid.
   return {event_name:input.name,event_time:input.eventTime,event_id:input.eventId,

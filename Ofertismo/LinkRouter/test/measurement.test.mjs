@@ -2,6 +2,20 @@ import {test} from 'node:test';
 import assert from 'node:assert/strict';
 import {issueTicket,verifyTicket,dispatchMeasurement,observeMeasurement} from '../src/measurement.mjs';
 const env={META_CAPI_ENABLED:'true',META_CAPI_TOKEN:'fake',META_MEASUREMENT_SIGNING_KEY:'mock-signing-key-for-unit-tests-only'};
+
+test('fb.2 é preservado no payload e na telemetria sem alterar o ID de deduplicação',async()=>{
+ const t=await issueTicket('/',env),page=await verifyTicket(t,env);
+ const fbp='fb.2.1795620000000.726999265572739778',fbc='fb.2.1795620000000.REAL_COOKIE';
+ const e={...env,ROUTER_STATE:{idFromName:s=>s,get:()=>({fetch:async()=>new Response('{}')})}};
+ for(const name of ['PageView','Lead']){
+  let event;
+  const request=new Request('https://ofertismo.com.br/entrar/meta',{method:'POST',headers:{origin:'https://ofertismo.com.br',referer:'https://ofertismo.com.br/',cookie:`oft_measure=yes; _fbp=${fbp}; _fbc=${fbc}`,'user-agent':'Mozilla/5.0'}});
+  const result=await dispatchMeasurement(request,e,t,name,async(_,init)=>{event=JSON.parse(init.body).data[0];return new Response('{"events_received":1}')});
+  assert.equal(result.sent,true);assert.equal(result.match_fbp,true);assert.equal(result.match_fbc,true);
+  assert.equal(event.user_data.fbp,fbp);assert.equal(event.user_data.fbc,fbc);
+  assert.equal(event.event_id,page.id+'_'+name);
+ }
+});
 test('ticket assinado, validade, origem e proteção contra alteração',async()=>{
  const t=await issueTicket('/',env,1795620000);
  const p=await verifyTicket(t,env,1795620000);

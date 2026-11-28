@@ -2,6 +2,19 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { buildEvent,sendCapi } from '../src/meta-capi.mjs';
 const input={consent:true,name:'Lead',eventId:'test_event_1234567890',eventTime:1795620000,sourceUrl:'https://ofertismo.com.br/?email=example%40example.org',userAgent:'test-browser'};
+
+test('preserva cookies Meta válidos em diferentes índices de domínio',()=>{
+ for(const index of [0,1,2,3]){
+  const fbp=`fb.${index}.1795620000000.726999265572739778`;
+  const fbc=`fb.${index}.1795620000000.REAL_CLICK_FIXTURE`;
+  const event=buildEvent({...input,fbp,fbc});
+  assert.equal(event.user_data.fbp,fbp);
+  assert.equal(event.user_data.fbc,fbc);
+ }
+ for(const invalid of ['fb.x.1795620000000.123','fb.-1.1795620000000.123','fb.2.bad.123','fb.2.1795620000000.bad','']){
+  assert.equal(buildEvent({...input,fbp:invalid}).user_data.fbp,undefined);
+ }
+});
 test('não inventa evento ou envia sem consentimento',()=>{
  assert.equal(buildEvent({...input,consent:false}),null);
  assert.equal(buildEvent({...input,name:'Purchase'}),null);

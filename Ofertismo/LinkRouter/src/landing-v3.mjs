@@ -356,7 +356,7 @@ details p{margin:0;padding:0 21px 22px;color:#d5cbd0;line-height:1.6;font-size:1
   cancelPageview();
   if(pageviewSent||!initialized||preference()!=='oft_measure=yes')return;
   var fbp=document.cookie.split(';').map(function(s){return s.trim()}).find(function(s){return s.indexOf('_fbp=')===0})||'';
-  if(/^_fbp=fb[.]1[.][0-9]{10,16}[.][0-9]{1,30}$/.test(fbp)||attempt>=12){sendPageview();return;}
+  if(/^_fbp=fb[.][0-9]{1,3}[.][0-9]{10,16}[.][0-9]{1,30}$/.test(fbp)||attempt>=12){sendPageview();return;}
   pageviewTimer=setTimeout(function(){pageviewTimer=null;waitForFbp(attempt+1)},100);
  }
  window.addEventListener('pagehide',sendPageview);

@@ -1,4 +1,4 @@
-import { sendCapi } from './meta-capi.mjs';
+import { sendCapi, validFbp, validFbc } from './meta-capi.mjs';
 const ORIGIN='https://ofertismo.com.br';
 const TTL=3600;
 const enc=new TextEncoder();
@@ -43,7 +43,7 @@ export async function dispatchMeasurement(request,env,ticket,name,fetchImpl=fetc
  let fbc=cookie(request,'_fbc');
  // The browser only supplies this first-party header after an explicit opt-in.
  // It is never logged or retained; use the timestamp of the actual signed landing visit.
- if(!/^fb\.1\.\d{10,16}\.[A-Za-z0-9_-]{1,512}$/.test(fbc))fbc='';
+ if(!validFbc(fbc))fbc='';
  if(!fbc&&request.method==='POST'&&request.headers.get('origin')===ORIGIN){
   const click=request.headers.get('x-oft-fbclid')||'';
   if(/^[A-Za-z0-9_-]{1,512}$/.test(click))fbc='fb.1.'+(page.issuedAt*1000)+'.'+click;
@@ -57,7 +57,7 @@ export async function dispatchMeasurement(request,env,ticket,name,fetchImpl=fetc
  }
  const fbp=cookie(request,'_fbp');
  const result=await sendCapi({consent:true,name,eventId:page.id+'_'+name,eventTime:Math.floor(Date.now()/1000),sourceUrl:page.sourceUrl,userAgent,clientIp:request.headers.get('cf-connecting-ip')||'',fbp,fbc},env,fetchImpl);
- return {...result,match_fbp:/^fb\.1\.\d{10,16}\.\d{1,30}$/.test(fbp),match_fbc:/^fb\.1\.\d{10,16}\.[A-Za-z0-9_-]{1,512}$/.test(fbc)};
+ return {...result,match_fbp:validFbp(fbp),match_fbc:validFbc(fbc)};
 }
 
 // Minimal delivery telemetry: no event IDs, URLs, cookies, IP, UA, token, or raw errors.

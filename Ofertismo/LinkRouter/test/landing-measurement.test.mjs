@@ -54,6 +54,10 @@ test('PageView waits for real browser cookie, flushes once and preserves consent
  await b.click();b.fire('pagehide');assert.equal(b.requests.length,1);
 });
 test('existing valid FBP sends immediately; absent or malformed cookie uses bounded fallback',()=>{
+ for(const index of [0,2,3]){
+  const domainCookie=browser('test-ticket',`oft_measure=yes; _fbp=fb.${index}.1795620000000.726999265572739778`);
+  assert.equal(domainCookie.requests.length,1);assert.equal(domainCookie.timers.size,0);
+ }
  const ready=browser('test-ticket','oft_measure=yes; _fbp=fb.1.1795620000000.123456');
  assert.equal(ready.requests.length,1);assert.equal(ready.timers.size,0);
  const missing=browser('test-ticket','oft_measure=yes; _fbp=invalid');
